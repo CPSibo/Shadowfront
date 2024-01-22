@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="UnitResource" load_steps=2 format=3 uid="uid://c2k00ywrim0od"]
+
+[ext_resource type="Script" path="res://Data/Units/UnitResource.cs" id="1_l4qo1"]
+
+[resource]
+script = ExtResource("1_l4qo1")
+SpritePath = ""
+Damage = 0.0
+MaxHealth = 0.0
+MaxMoveDistance = 0
+MaxAttackDistance = 0

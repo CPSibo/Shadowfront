@@ -1,0 +1,7 @@
+[gd_resource type="Resource" script_class="PlayerFactionResource" load_steps=2 format=3 uid="uid://07x8orgxclel"]
+
+[ext_resource type="Script" path="res://Data/Factions/PlayerFactionResource.cs" id="1_rc7w7"]
+
+[resource]
+script = ExtResource("1_rc7w7")
+Name = "Player"

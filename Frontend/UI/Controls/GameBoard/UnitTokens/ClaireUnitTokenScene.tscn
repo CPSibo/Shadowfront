@@ -1,0 +1,67 @@
+[gd_scene load_steps=11 format=3 uid="uid://dl2q4fx151t3"]
+
+[ext_resource type="Script" path="res://Frontend/UI/Controls/GameBoard/UnitTokens/ClaireUnitTokenScene.cs" id="1_1nmmm"]
+[ext_resource type="Texture2D" uid="uid://8nnhcvefey5g" path="res://Assets/Sprites/Characters/Claire/Idle.png" id="1_ulk5d"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_fsehi"]
+atlas = ExtResource("1_ulk5d")
+region = Rect2(46, 0, 46, 67)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_pigyo"]
+atlas = ExtResource("1_ulk5d")
+region = Rect2(174, 0, 46, 67)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_w3f0x"]
+atlas = ExtResource("1_ulk5d")
+region = Rect2(302, 0, 46, 67)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_5w2fj"]
+atlas = ExtResource("1_ulk5d")
+region = Rect2(430, 0, 46, 67)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_eqq2k"]
+atlas = ExtResource("1_ulk5d")
+region = Rect2(558, 0, 46, 67)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_ttwjb"]
+atlas = ExtResource("1_ulk5d")
+region = Rect2(686, 0, 46, 67)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_aokr8"]
+atlas = ExtResource("1_ulk5d")
+region = Rect2(814, 0, 46, 67)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_8webk"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_fsehi")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_pigyo")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_w3f0x")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_5w2fj")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_eqq2k")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_ttwjb")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_aokr8")
+}],
+"loop": true,
+"name": &"default",
+"speed": 5.0
+}]
+
+[node name="ClaireUnitTokenScene" type="Node2D"]
+script = ExtResource("1_1nmmm")
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
+sprite_frames = SubResource("SpriteFrames_8webk")

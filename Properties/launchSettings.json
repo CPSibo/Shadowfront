@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "Shadowfront": {
+      "commandName": "Project"
+    },
+    "Godot": {
+      "commandName": "Executable",
+      "executablePath": "C:\\Users\\siboc\\Desktop\\Godot_v4.2.1-stable_mono_win64\\Godot_v4.2.1-stable_mono_win64.exe",
+      "workingDirectory": "C:\\Users\\siboc\\Documents\\Shadowfront"
+    }
+  }
+}

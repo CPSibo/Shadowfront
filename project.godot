@@ -11,8 +11,9 @@ config_version=5
 [application]
 
 config/name="Shadowfront"
+run/main_scene="res://Frontend/UI/Screens/GameBoardScreen.tscn"
 config/features=PackedStringArray("4.2", "C#", "Mobile")
-config/icon="res://assets/build_assets/app_icons/icon.svg"
+config/icon="res://Assets/BuildAssets/AppIcons/Icon.svg"
 
 [display]
 

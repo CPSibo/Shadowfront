@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="Claire" load_steps=2 format=3 uid="uid://cooepg5vqusah"]
+
+[ext_resource type="Script" path="res://Data/Units/Claire.cs" id="1_v3crh"]
+
+[resource]
+script = ExtResource("1_v3crh")
+UnitTokenScene = "res://Frontend/UI/Controls/GameBoard/UnitTokens/ClaireUnitTokenScene.tscn"
+Damage = 5.0
+MaxHealth = 10.0
+MaxMoveDistance = 2
+MaxAttackDistance = 1
