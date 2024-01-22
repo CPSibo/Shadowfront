@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://lqgy6pdtn3sg"]
+
+[ext_resource type="Script" path="res://frontend/ui/screens/GameBoardScreen.cs" id="1_ltd1s"]
+
+[node name="GameBoardScreen" type="Node2D"]
+script = ExtResource("1_ltd1s")
