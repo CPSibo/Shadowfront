@@ -7,6 +7,7 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
+    <Folder Include="Frontend\UI\Controls\GameBoard\UnitTokens\" />
     <Folder Include="Frontend\UI\Screens\" />
   </ItemGroup>
 </Project>

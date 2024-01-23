@@ -91,18 +91,18 @@ namespace Shadowfront.Backend.Board
                 return;
             }
 
-            var faction = GD.Load<PlayerFactionResource>("res://Data/Factions/PlayerFactionResource.tres"); // DevWindow.Instance.SelectedFaction;
-            var tokenType = GD.Load<Claire>("res://Data/Units/Claire.tres"); // DevWindow.Instance.SelectedTokenType;
+            var faction = "player"; // DevWindow.Instance.SelectedFaction;
+            var unitTokenScenePath = "res://Data/Units/Claire.tres"; // DevWindow.Instance.SelectedTokenType;
 
             if (faction is null)
                 throw new Exception("No faction given");
 
-            if (tokenType is null)
+            if (unitTokenScenePath is null)
                 throw new Exception("No token type given");
 
             _gameBoard.SpawnToken(
                 this,
-                tokenType,
+                unitTokenScenePath,
                 faction
             );
         }

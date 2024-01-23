@@ -1,7 +1,9 @@
-[gd_scene load_steps=11 format=3 uid="uid://dl2q4fx151t3"]
+[gd_scene load_steps=13 format=3 uid="uid://dl2q4fx151t3"]
 
-[ext_resource type="Script" path="res://Frontend/UI/Controls/GameBoard/UnitTokens/ClaireUnitTokenScene.cs" id="1_1nmmm"]
+[ext_resource type="Script" path="res://Data/Units/ClairUnit.cs" id="1_7medt"]
 [ext_resource type="Texture2D" uid="uid://8nnhcvefey5g" path="res://Assets/Sprites/Characters/Claire/Idle.png" id="1_ulk5d"]
+[ext_resource type="PackedScene" uid="uid://cevp4lydu6k1x" path="res://Frontend/Nodes/GameBoard/BoardPieceHealth.tscn" id="3_gowlq"]
+[ext_resource type="PackedScene" uid="uid://d0fkl6tjit0r6" path="res://Frontend/Nodes/GameBoard/BoardPieceMovement.tscn" id="4_5ot01"]
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_fsehi"]
 atlas = ExtResource("1_ulk5d")
@@ -61,7 +63,13 @@ animations = [{
 }]
 
 [node name="ClaireUnitTokenScene" type="Node2D"]
-script = ExtResource("1_1nmmm")
+script = ExtResource("1_7medt")
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
 sprite_frames = SubResource("SpriteFrames_8webk")
+
+[node name="BoardPieceHealth" parent="." instance=ExtResource("3_gowlq")]
+MaxHealth = 10.0
+
+[node name="BoardPieceMovement" parent="." instance=ExtResource("4_5ot01")]
+MaximumMoveRange = 2

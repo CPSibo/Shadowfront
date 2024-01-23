@@ -15,4 +15,10 @@ namespace Shadowfront.Backend
             base.Dispose(disposing);
         }
     }
+
+    public interface IDisposableNode : IDisposable
+    {
+        [Signal]
+        public delegate void DisposingEventHandler(IDisposableNode sender);
+    }
 }
