@@ -11,6 +11,8 @@ public partial class PlayerCamera : Camera2D
     [Export]
     public float ZoomSpeed { get; set; } = 0.5f;
 
+    private Tween? _zoomTween = null;
+
     public override void _Process(double delta)
     {
         base._Process(delta);
@@ -60,10 +62,20 @@ public partial class PlayerCamera : Camera2D
         if (@event is not InputEventMouseButton mouseEvent)
             return;
 
+        var newZoom = Zoom;
+
         if (mouseEvent.ButtonIndex == MouseButton.WheelUp && mouseEvent.Pressed)
-            Zoom += Vector2.One * ZoomSpeed;
+            newZoom += Vector2.One * ZoomSpeed;
 
         if (mouseEvent.ButtonIndex == MouseButton.WheelDown && mouseEvent.Pressed)
-            Zoom -= Vector2.One * ZoomSpeed;
+            newZoom -= Vector2.One * ZoomSpeed;
+
+        if (newZoom == Zoom)
+            return;
+
+        _zoomTween?.Kill();
+
+        _zoomTween = CreateTween();
+        _zoomTween.TweenProperty(this, "zoom", newZoom, 0.15f);
     }
 }

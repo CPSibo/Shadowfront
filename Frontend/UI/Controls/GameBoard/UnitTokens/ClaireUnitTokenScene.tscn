@@ -73,3 +73,7 @@ MaxHealth = 10.0
 
 [node name="BoardPieceMovement" parent="." instance=ExtResource("4_5ot01")]
 MaximumMoveRange = 2
+
+[node name="Label" type="Label" parent="."]
+offset_right = 40.0
+offset_bottom = 23.0

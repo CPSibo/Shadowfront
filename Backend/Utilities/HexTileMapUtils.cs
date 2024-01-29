@@ -55,8 +55,11 @@ namespace Shadowfront.Backend.Utilities
 
                 for (var y = topEdge; y <= bottomEdge; y++)
                 {
+                    if (x == originCell.X && y == originCell.Y)
+                        continue;
+
                     // Circle the square.
-                    if ((x == leftEdge || x == rightEdge) && (y == topEdge || y == bottomEdge))
+                    if ((x == leftEdge || x == rightEdge) && (y == topEdge || y == bottomEdge) && xIsOffset == currentCellIsOffset)
                         continue;
 
                     // Get rid of farthest cells in the alternate rows.

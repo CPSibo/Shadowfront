@@ -7,6 +7,8 @@ namespace Shadowfront.Backend.Board
     {
         private readonly GameBoard _gameBoard;
 
+        public long Id { get; private set; }
+
         public bool IsHovered { get; set; }
 
         public bool IsSelected { get; set; }
@@ -25,10 +27,11 @@ namespace Shadowfront.Backend.Board
 
         public UnitToken? UnitToken { get; private set; }
 
-        public GameBoardCell(GameBoard gameBoard, Vector2I boardPosition)
+        public GameBoardCell(GameBoard gameBoard, Vector2I boardPosition, long id)
         {
             _gameBoard = gameBoard;
             BoardPosition = boardPosition;
+            Id = id;
         }
 
         public void SetToken(UnitToken token)
@@ -92,7 +95,7 @@ namespace Shadowfront.Backend.Board
             }
 
             var faction = "player"; // DevWindow.Instance.SelectedFaction;
-            var unitTokenScenePath = "res://Data/Units/Claire.tres"; // DevWindow.Instance.SelectedTokenType;
+            var unitTokenScenePath = "res://Frontend/UI/Controls/GameBoard/UnitTokens/ClaireUnitTokenScene.tscn"; // DevWindow.Instance.SelectedTokenType;
 
             if (faction is null)
                 throw new Exception("No faction given");

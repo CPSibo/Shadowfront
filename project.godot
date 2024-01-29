@@ -27,6 +27,10 @@ window/vsync/vsync_mode=0
 
 project/assembly_name="Shadowfront"
 
+[gui]
+
+theme/default_font_multichannel_signed_distance_field=true
+
 [input]
 
 GameBoard.PanCameraRight={

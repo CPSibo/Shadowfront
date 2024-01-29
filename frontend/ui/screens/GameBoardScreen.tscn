@@ -1,7 +1,8 @@
-[gd_scene load_steps=3 format=3 uid="uid://lqgy6pdtn3sg"]
+[gd_scene load_steps=4 format=3 uid="uid://lqgy6pdtn3sg"]
 
 [ext_resource type="PackedScene" uid="uid://c8bki2kmt67oy" path="res://Frontend/Levels/TestLevel.tscn" id="1_5noj5"]
 [ext_resource type="Script" path="res://Frontend/UI/Controls/GameBoard/PlayerCamera.cs" id="1_oqvri"]
+[ext_resource type="Script" path="res://Frontend/Nodes/GameBoard/CellOutliner.cs" id="3_n60eu"]
 
 [node name="GameBoardScreen" type="Node2D"]
 
@@ -9,4 +10,10 @@
 ignore_rotation = false
 script = ExtResource("1_oqvri")
 
-[node name="TestLevel" parent="." instance=ExtResource("1_5noj5")]
+[node name="TestLevel" parent="." node_paths=PackedStringArray("CellOutliner") instance=ExtResource("1_5noj5")]
+CellOutliner = NodePath("../CellOutliner")
+
+[node name="CellOutliner" type="Node2D" parent="."]
+z_index = 5
+script = ExtResource("3_n60eu")
+TileSideLength = 51.0

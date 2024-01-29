@@ -1,10 +1,10 @@
 using Godot;
+using Shadowfront.Backend.Utilities;
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Linq;
-using System.Reflection;
 using System.Threading.Tasks;
 
 namespace Shadowfront.Backend.Board
@@ -52,6 +52,7 @@ namespace Shadowfront.Backend.Board
 
         [Signal]
         public delegate void ClearUnitTokenMovementRangeEventHandler(Godot.Collections.Array<Vector2I> cells);
+
         public enum Styles
         {
             Default,
@@ -67,6 +68,9 @@ namespace Shadowfront.Backend.Board
             { Styles.Hovered, new(2, 0, 3) },
             { Styles.InRange, new(2, 0, 1) },
         }.ToImmutableDictionary();
+
+        [Export]
+        public CellOutliner? CellOutliner { get; set; }
 
         public int GROUND_LAYER_INDEX = 0;
 
@@ -115,6 +119,10 @@ namespace Shadowfront.Backend.Board
             var unitTokenScenePath = "res://Frontend/UI/Controls/GameBoard/UnitTokens/ClaireUnitTokenScene.tscn";
 
             SpawnToken(Cells[new(1, 3)], unitTokenScenePath, faction);
+
+            SpawnToken(Cells[new(15, 4)], unitTokenScenePath, faction);
+
+            SpawnToken(Cells[new(1, 0)], unitTokenScenePath, "enemy");
         }
 
         protected override void Dispose(bool disposing)
@@ -182,9 +190,13 @@ namespace Shadowfront.Backend.Board
 
             Cells.Clear();
 
+            var count = 0;
+
             foreach (var cell in usedCells)
             {
-                Cells.Add(cell, new(this, cell));
+                Cells.Add(cell, new(this, cell, count));
+
+                count++;
 
                 var localPos = this.GetLocalFromCell(cell);
 
@@ -201,6 +213,51 @@ namespace Shadowfront.Backend.Board
                 positionLabel.AddThemeFontSizeOverride("font_size", 10);
                 AddChild(positionLabel);
             }
+
+            var navGraph = GenerateNavigationGraph();
+
+            var startNode = Cells[new(1, 3)];
+            var endNode = Cells[new(-2, 1)];
+
+            var path = navGraph.GetPointPath(startNode.Id, endNode.Id);
+
+            if (path is null || path.Length == 0)
+                Debugger.Log(0, "INFO", "No path found\n");
+            else
+            {
+                Debugger.Log(0, "INFO", $"{string.Join(" -> ", path)}\n");
+
+                foreach(var node in path)
+                {
+                    SetCellStyle(new((int)node.X, (int)node.Y), Styles.InRange);
+                }
+            }
+        }
+
+        private AStar2D GenerateNavigationGraph()
+        {
+            var aStar = new AStar2D();
+            aStar.ReserveSpace(Cells.Count);
+
+            foreach (var cell in Cells)
+            {
+                aStar.AddPoint(cell.Value.Id, cell.Key);
+            }
+
+            foreach (var (position, node) in Cells)
+            {
+                var hypotheticalNeighbors = HexTileMapUtils.GetHypotheticalCellsWithinRange(position, 1);
+
+                foreach (var hypotheticalNeighbor in hypotheticalNeighbors)
+                {
+                    if (!Cells.TryGetValue(hypotheticalNeighbor, out var realCell))
+                        continue;
+
+                    aStar.ConnectPoints(node.Id, realCell.Id);
+                }
+            }
+
+            return aStar;
         }
 
         public void SetCellStyle(Vector2I cell, Styles style)
@@ -271,16 +328,6 @@ namespace Shadowfront.Backend.Board
             c.OnHover();
         }
 
-        public void CreateCells(IEnumerable<Vector2I> cells)
-        {
-            Cells = new(cells.Count());
-
-            foreach (var cell in cells)
-            {
-                Cells[cell] = new GameBoardCell(this, cell);
-            }
-        }
-
         public void SelectCell(GameBoardCell cell)
         {
             ClearSelectedCell();
@@ -288,7 +335,9 @@ namespace Shadowfront.Backend.Board
             SelectedCell = cell;
             cell.IsSelected = true;
 
-            SetCellStyle(cell.BoardPosition, Styles.Selected);
+            //SetCellStyle(cell.BoardPosition, Styles.Selected);
+
+            CellOutliner?.SetCellStyle(MapToLocal(cell.BoardPosition), CellOutliner.CellStyles.Selected);
 
             EmitSignal(SignalName.CellSelected, cell.BoardPosition);
 
@@ -311,7 +360,9 @@ namespace Shadowfront.Backend.Board
             SelectedCell.IsSelected = false;
             SelectedCell = null;
 
-            RemoveCellStyles(cell, Styles.Selected);
+            //RemoveCellStyles(cell, Styles.Selected);
+
+            CellOutliner?.RemoveCellStyle(MapToLocal(cell), CellOutliner.CellStyles.Selected);
 
             EmitSignal(SignalName.CellUnselected, cell);
 
@@ -333,7 +384,9 @@ namespace Shadowfront.Backend.Board
 
             HoveredCell = null;
 
-            RemoveCellStyles(cell.BoardPosition, Styles.Hovered);
+            //RemoveCellStyles(cell.BoardPosition, Styles.Hovered);
+
+            CellOutliner?.RemoveCellStyle(MapToLocal(cell.BoardPosition), CellOutliner.CellStyles.Hover);
 
             EmitSignal(SignalName.CellUnhovered, cell.BoardPosition);
         }
@@ -345,12 +398,7 @@ namespace Shadowfront.Backend.Board
             if (!Cells.TryGetValue(cell, out var gameCell))
                 return;
 
-            gameCell.IsHovered = true;
-            HoveredCell = gameCell;
-
-            SetCellStyle(cell, Styles.Hovered);
-
-            EmitSignal(SignalName.CellHovered, cell);
+            gameCell.OnHover();
         }
 
         public void HoverCell(GameBoardCell cell)
@@ -360,7 +408,9 @@ namespace Shadowfront.Backend.Board
             cell.IsHovered = true;
             HoveredCell = cell;
 
-            SetCellStyle(cell.BoardPosition, Styles.Hovered);
+            //SetCellStyle(cell.BoardPosition, Styles.Hovered);
+
+            CellOutliner?.SetCellStyle(MapToLocal(cell.BoardPosition), CellOutliner.CellStyles.Hover);
 
             EmitSignal(SignalName.CellHovered, cell.BoardPosition);
         }
@@ -517,8 +567,10 @@ namespace Shadowfront.Backend.Board
             {
                 cell.IsInMovementRange = true;
 
-                SetCellStyle(cell.BoardPosition, Styles.InRange);
+                //SetCellStyle(cell.BoardPosition, Styles.InRange);
             }
+
+            CellOutliner?.SetCellStyle(movementCells.Select(f => MapToLocal(f.BoardPosition)), CellOutliner.CellStyles.MovementRange);
 
             EmitSignal(SignalName.ShowUnitTokenMovementRange,
                 new Godot.Collections.Array<Vector2I>(movementCells.Select(f => f.BoardPosition)));
@@ -533,8 +585,10 @@ namespace Shadowfront.Backend.Board
             {
                 cell.IsInMovementRange = false;
 
-                RemoveCellStyles(cell.BoardPosition, Styles.InRange);
+                //RemoveCellStyles(cell.BoardPosition, Styles.InRange);
             }
+
+            CellOutliner?.RemoveCellStyle(CellsWithinMovementRange.Select(f => MapToLocal(f.BoardPosition)), CellOutliner.CellStyles.MovementRange);
 
             EmitSignal(SignalName.ClearUnitTokenMovementRange,
                 new Godot.Collections.Array<Vector2I>(CellsWithinMovementRange.Select(f => f.BoardPosition)));
