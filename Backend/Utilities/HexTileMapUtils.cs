@@ -111,20 +111,24 @@ namespace Shadowfront.Backend.Utilities
             var outerYTop = topY;
             var outerYBottom = bottomY;
 
+            // Scan each column from left to right.
             for (var x = leftX; x <= rightX; x++)
             {
                 var mod = x % 2;
 
+                // If we're on the left half of the hex...
                 if (x < originCell.X)
                 {
                     if (mod == 0) outerYBottom++;
                     else outerYTop--;
                 }
+                // If we're on the right half of the hex...
                 else if (x > originCell.X)
                 {
                     if (mod == 0) outerYTop++;
                     else outerYBottom--;
                 }
+                // If we're in the center column...
                 else
                 {
                     if (currentCellIsOffset)
@@ -133,16 +137,11 @@ namespace Shadowfront.Backend.Utilities
                         outerYBottom++;
                 }
 
-                // Return by scanning each column from top to bottom
-
-                yield return new(x, outerYTop);
-
+                // Fill in all the cells between our top and bottom bounds.
                 for(var i = outerYTop; i <= outerYBottom; i++)
                 {
                     yield return new(x, i);
                 }
-
-                yield return new(x, outerYBottom);
             }
         }
 
