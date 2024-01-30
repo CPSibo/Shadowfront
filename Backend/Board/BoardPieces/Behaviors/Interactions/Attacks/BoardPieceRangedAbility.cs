@@ -75,7 +75,7 @@ namespace Shadowfront.Backend.Board.BoardPieces.Behaviors.Interactions.Attacks
                 return [];
 
             return HexTileMapUtils
-                .GetHypotheticalCellsWithinRange(_parent.BoardPieceMovement.Position, MaxRange)
+                .GetHypotheticalCellsWithinRange(_parent.BoardPieceMovement.Position, MinRange, MaxRange)
                 .ToHashSet();
         }
 

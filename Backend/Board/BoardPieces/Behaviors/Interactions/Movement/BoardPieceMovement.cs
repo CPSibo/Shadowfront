@@ -20,7 +20,6 @@ namespace Shadowfront.Backend.Board.BoardPieces.Behaviors.Interactions.Movement
         [Export]
         public int MaxRange { get; set; }
 
-        // TODO: Not implemented.
         /// <summary>
         /// The minimum number of tiles the piece can move.
         /// </summary>
@@ -57,7 +56,7 @@ namespace Shadowfront.Backend.Board.BoardPieces.Behaviors.Interactions.Movement
                 return [];
 
             return HexTileMapUtils
-                .GetActualCellsWithinRange(_availableCells, Position, MaxRange)
+                .GetActualCellsWithinRange(_availableCells, Position, MinRange, MaxRange)
                 .Where(f => f != Position)
                 .ToHashSet();
         }

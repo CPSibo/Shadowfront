@@ -8,6 +8,18 @@ namespace Shadowfront.Backend.Utilities
 {
     public static class HexTileMapUtils
     {
+        [Flags]
+        public enum PathfindingRules
+        {
+            None = 0,
+            RequiresTraversablePath = 1,
+            IncludeOwnTile = 2,
+            IncludeGroundTiles = 4,
+            IncludeOtherTiles = 8,
+            IncludeOwnTeamTiles = 16,
+            IncludeOtherTeamTiles = 32,
+        }
+
         /// <summary>
         /// Calculates how many neighbors a given cell might have within the given range.
         /// </summary>
@@ -29,12 +41,40 @@ namespace Shadowfront.Backend.Utilities
         /// <summary>
         /// Returns the positions of all neighbors that might exist withing the range.
         /// </summary>
-        public static IEnumerable<Vector2I> GetHypotheticalCellsWithinRange(Vector2I originCell, int range)
+        public static IEnumerable<Vector2I> GetHypotheticalCellsWithinRange(Vector2I originCell, int minRange, int maxRange)
         {
-            if (range <= 0)
+            // If we have no range, return nothing.
+            if(maxRange < 0)
                 return Enumerable.Empty<Vector2I>();
 
-            return GetHypotheticalCellsWithinRangeIterator(originCell, range);
+            // If we have misconfigured ranges, return nothing.
+            if (minRange > maxRange)
+                return Enumerable.Empty<Vector2I>();
+
+            // If we have zero range, return the origin.
+            if (maxRange == 0)
+                return [originCell];
+
+            // We have a non-zero range, so get all the possible
+            // cells between the origin and the outer ring, inclusive.
+            var outerRing = GetHypotheticalCellsWithinRangeIterator(originCell, maxRange);
+
+            // If we have no min range, return the whole outer range.
+            if (minRange <= 0)
+                return outerRing;
+
+            // If the min range is 1, just exclude the origin cell.
+            if (minRange == 1)
+                return outerRing.Where(f => f != originCell);
+
+            // Otherwise, get the cells that fall within the min range, exclusive.
+            var innerRing = GetHypotheticalCellsWithinRangeIterator(originCell, minRange - 1);
+
+            // And substract them from the outer range.
+            //
+            // eg. min=3, max=3 should produce a ring of cells at
+            // distance 3 from the origin.
+            return outerRing.Except(innerRing);
         }
 
         /// <summary>
@@ -42,44 +82,76 @@ namespace Shadowfront.Backend.Utilities
         /// </summary>
         private static IEnumerable<Vector2I> GetHypotheticalCellsWithinRangeIterator(Vector2I originCell, int range)
         {
-            var leftEdge = originCell.X - range;
-            var rightEdge = originCell.X + range;
-            var topEdge = originCell.Y - range;
-            var bottomEdge = originCell.Y + range;
+            if (range < 0)
+                yield break;
+
+            if (range == 0)
+            {
+                yield return originCell;
+                yield break;
+            }
+
+            var diagonalYRange = (int)Math.Floor(range / 2d);
+            var diagonalYRangeOffset = (int)Math.Ceiling(range / 2d);
 
             var currentCellIsOffset = Math.Abs(originCell.X) % 2 > 0;
+            var southDiagonalYOffset = currentCellIsOffset ? diagonalYRange : diagonalYRangeOffset;
+            var northDiagonalYOffset = currentCellIsOffset ? diagonalYRangeOffset : diagonalYRange;
 
-            for (var x = leftEdge; x <= rightEdge; x++)
+            var leftX = originCell.X - range;
+            var rightX = originCell.X + range;
+            var topY = originCell.Y - northDiagonalYOffset;
+            var bottomY = originCell.Y + southDiagonalYOffset;
+
+            if (currentCellIsOffset)
+                topY++;
+            else
+                bottomY--;
+
+            var outerYTop = topY;
+            var outerYBottom = bottomY;
+
+            for (var x = leftX; x <= rightX; x++)
             {
-                var xIsOffset = Math.Abs(x) % 2 > 0;
+                var mod = x % 2;
 
-                for (var y = topEdge; y <= bottomEdge; y++)
+                if (x < originCell.X)
                 {
-                    if (x == originCell.X && y == originCell.Y)
-                        continue;
-
-                    // Circle the square.
-                    if ((x == leftEdge || x == rightEdge) && (y == topEdge || y == bottomEdge) && xIsOffset == currentCellIsOffset)
-                        continue;
-
-                    // Get rid of farthest cells in the alternate rows.
-                    if (currentCellIsOffset && !xIsOffset && y == topEdge)
-                        continue;
-
-                    if (!currentCellIsOffset && xIsOffset && y == bottomEdge)
-                        continue;
-
-                    yield return new(x, y);
+                    if (mod == 0) outerYBottom++;
+                    else outerYTop--;
                 }
+                else if (x > originCell.X)
+                {
+                    if (mod == 0) outerYTop++;
+                    else outerYBottom--;
+                }
+                else
+                {
+                    if (currentCellIsOffset)
+                        outerYTop--;
+                    else
+                        outerYBottom++;
+                }
+
+                // Return by scanning each column from top to bottom
+
+                yield return new(x, outerYTop);
+
+                for(var i = outerYTop; i <= outerYBottom; i++)
+                {
+                    yield return new(x, i);
+                }
+
+                yield return new(x, outerYBottom);
             }
         }
 
         /// <summary>
         /// Returns the positions of all neighbors that actually exist withing the range.
         /// </summary>
-        public static IEnumerable<Vector2I> GetActualCellsWithinRange(IEnumerable<Vector2I> availableCells, Vector2I originCell, int range)
+        public static IEnumerable<Vector2I> GetActualCellsWithinRange(IEnumerable<Vector2I> availableCells, Vector2I originCell, int minRange, int maxRange)
         {
-            var hypotheticalCells = GetHypotheticalCellsWithinRange(originCell, range);
+            var hypotheticalCells = GetHypotheticalCellsWithinRange(originCell, minRange, maxRange);
 
             var lookup = availableCells.ToHashSet();
 

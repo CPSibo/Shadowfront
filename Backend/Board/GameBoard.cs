@@ -77,7 +77,8 @@ namespace Shadowfront.Backend.Board
 
             CreateBoardPiece(Cells[new(1, 3)], boardPieceScenePath, faction);
 
-            CreateBoardPiece(Cells[new(15, 4)], boardPieceScenePath, faction);
+            CreateBoardPiece(Cells[new(19, 0)], boardPieceScenePath, faction);
+            CreateBoardPiece(Cells[new(20, 1)], boardPieceScenePath, faction);
 
             CreateBoardPiece(Cells[new(1, 0)], boardPieceScenePath, "enemy");
         }
@@ -182,19 +183,19 @@ namespace Shadowfront.Backend.Board
 
             EventBus.Emit(new GameBoard_GroundCellsChanged(Cells.Values));
 
-            var navGraph = GenerateNavigationGraph();
+            //var navGraph = GenerateNavigationGraph();
 
-            var startNode = Cells[new(1, 3)];
-            var endNode = Cells[new(-2, 1)];
+            //var startNode = Cells[new(1, 3)];
+            //var endNode = Cells[new(-2, 1)];
 
-            var path = navGraph.GetPointPath(startNode.Id, endNode.Id);
+            //var path = navGraph.GetPointPath(startNode.Id, endNode.Id);
 
-            if (path is null || path.Length == 0)
-                Debugger.Log(0, "INFO", "No path found\n");
-            else
-            {
-                Debugger.Log(0, "INFO", $"{string.Join(" -> ", path)}\n");
-            }
+            //if (path is null || path.Length == 0)
+            //    Debugger.Log(0, "INFO", "No path found\n");
+            //else
+            //{
+            //    Debugger.Log(0, "INFO", $"{string.Join(" -> ", path)}\n");
+            //}
         }
 
         private AStar2D GenerateNavigationGraph()
@@ -209,7 +210,7 @@ namespace Shadowfront.Backend.Board
 
             foreach (var (position, node) in Cells)
             {
-                var hypotheticalNeighbors = HexTileMapUtils.GetHypotheticalCellsWithinRange(position, 1);
+                var hypotheticalNeighbors = HexTileMapUtils.GetHypotheticalCellsWithinRange(position, 0, 1);
 
                 foreach (var hypotheticalNeighbor in hypotheticalNeighbors)
                 {

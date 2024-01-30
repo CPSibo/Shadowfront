@@ -81,5 +81,5 @@ offset_right = 40.0
 offset_bottom = 23.0
 
 [node name="BoardPieceGunAbility" parent="." instance=ExtResource("5_bq403")]
-MinRange = 1
-MaxRange = 2
+MinRange = 3
+MaxRange = 5
