@@ -13,7 +13,8 @@ config_version=5
 config/name="Shadowfront"
 run/main_scene="res://Frontend/UI/Screens/GameBoardScreen.tscn"
 config/features=PackedStringArray("4.2", "C#", "Mobile")
-config/icon="res://Assets/BuildAssets/AppIcons/Icon.svg"
+boot_splash/image="res://Assets/BuildAssets/AppIcons/logo_white_red-and-purple-bg.png"
+config/icon="res://Assets/BuildAssets/AppIcons/logo_black.svg"
 
 [display]
 

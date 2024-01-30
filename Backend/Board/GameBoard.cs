@@ -1,8 +1,12 @@
 using Godot;
+using Shadowfront.Backend.Board.BoardPieces;
+using Shadowfront.Backend.Board.BoardPieces.Behaviors;
+using Shadowfront.Backend.Board.BoardPieces.Behaviors.Interactions;
+using Shadowfront.Backend.Board.BoardPieces.Behaviors.Interactions.Movement;
 using Shadowfront.Backend.Utilities;
+using Shadowfront.Frontend.UI.Subscreens;
 using System;
 using System.Collections.Generic;
-using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
@@ -11,92 +15,28 @@ namespace Shadowfront.Backend.Board
 {
     public partial class GameBoard : TileMap, IDisposableNode
     {
-        [Signal]
-        public delegate void DisposingEventHandler(GameBoard sender);
-
-        [Signal]
-        public delegate void CellSelectedEventHandler(Vector2I cell);
-
-        [Signal]
-        public delegate void CellUnselectedEventHandler(Vector2I cell);
-
-        [Signal]
-        public delegate void CellHoveredEventHandler(Vector2I cell);
-
-        [Signal]
-        public delegate void CellUnhoveredEventHandler(Vector2I cell);
-
-        [Signal]
-        public delegate void UnitTokenSelectedEventHandler(UnitToken token);
-
-        [Signal]
-        public delegate void UnitTokenUnselectedEventHandler(UnitToken token);
-
-        [Signal]
-        public delegate void UnitTokenMovedEventHandler(UnitToken token, Vector2I from, Vector2I to);
-
-        [Signal]
-        public delegate void UnitTokenCreatedEventHandler(UnitToken token, Vector2I cell);
-
-        [Signal]
-        public delegate void UnitTokenHealthChangedEventHandler(UnitToken token, float previousHealth, float newHealth);
-
-        [Signal]
-        public delegate void UnitTokenHealthReachedZeroEventHandler(UnitToken token);
-
-        [Signal]
-        public delegate void UnitTokenDisposingEventHandler(UnitToken token);
-
-        [Signal]
-        public delegate void ShowUnitTokenMovementRangeEventHandler(Godot.Collections.Array<Vector2I> cells);
-
-        [Signal]
-        public delegate void ClearUnitTokenMovementRangeEventHandler(Godot.Collections.Array<Vector2I> cells);
-
-        public enum Styles
-        {
-            Default,
-            Selected,
-            Hovered,
-            InRange,
-        }
-
-        public static ImmutableDictionary<Styles, Vector3I> StylesIndex { get; } = new Dictionary<Styles, Vector3I>()
-        {
-            { Styles.Default, new(2, 0, 0) },
-            { Styles.Selected, new(2, 0, 2) },
-            { Styles.Hovered, new(2, 0, 3) },
-            { Styles.InRange, new(2, 0, 1) },
-        }.ToImmutableDictionary();
-
         [Export]
         public CellOutliner? CellOutliner { get; set; }
 
         public int GROUND_LAYER_INDEX = 0;
 
-        public int DEFAULT_TILESET_ID = 0;
-
         public Dictionary<Vector2I, GameBoardCell> Cells { get; private set; } = [];
 
-        private readonly List<UnitToken> _tokens = [];
+        private readonly List<BoardPiece> _boardPieces = [];
 
-        private readonly Dictionary<UnitToken, GameBoardCell> _tokenCells = [];
+        private readonly Dictionary<BoardPiece, GameBoardCell> _boardPieceCells = [];
 
-        public GameBoardCell? SelectedCell { get; private set; }
+        public GameBoardCell? ActiveCell { get; private set; }
 
-        public GameBoardCell? HoveredCell { get; private set; }
-
-        public HashSet<GameBoardCell>? CellsWithinMovementRange { get; private set; }
-
-        public HashSet<GameBoardCell>? CellsWithinAttackRange { get; private set; }
-
-        public UnitToken? SelectedToken => SelectedCell?.UnitToken;
+        public BoardPiece? ActiveBoardPiece => ActiveCell?.BoardPiece;
 
         public Vector2I TileSize { get; private set; }
 
         public Vector2I TileSizeHalf { get; private set; }
 
         public Vector2 TileSizeStacked { get; private set; }
+
+        private BoardPieceInteraction? _activeInteraction = null;
 
         public override void _Ready()
         {
@@ -105,6 +45,13 @@ namespace Shadowfront.Backend.Board
             TileSizeStacked = new Vector2(TileSize.X * 0.75f, TileSize.Y);
 
             base._Ready();
+
+            EventBus.Subscribe<BoardPieceActionBar_InteractionButtonClickedEvent>(BoardPieceActionBar_InteractionButtonClicked);
+
+            EventBus.Subscribe<BoardPiece_DisposingEvent>(BoardPiece_Disposing);
+            EventBus.Subscribe<BoardPiece_HealthAtMinEvent>(BoardPiece_HealthAtMin);
+
+            EventBus.Subscribe<BoardPieceMovement_PositionChangedEvent>(BoardPieceMovement_PositionChanged);
 
             InitializeData();
 
@@ -116,18 +63,25 @@ namespace Shadowfront.Backend.Board
             await Task.Yield();
 
             var faction = "player";
-            var unitTokenScenePath = "res://Frontend/UI/Controls/GameBoard/UnitTokens/ClaireUnitTokenScene.tscn";
+            var boardPieceScenePath = "res://Frontend/UI/Controls/GameBoard/UnitTokens/ClaireUnitTokenScene.tscn";
 
-            SpawnToken(Cells[new(1, 3)], unitTokenScenePath, faction);
+            CreateBoardPiece(Cells[new(1, 3)], boardPieceScenePath, faction);
 
-            SpawnToken(Cells[new(15, 4)], unitTokenScenePath, faction);
+            CreateBoardPiece(Cells[new(15, 4)], boardPieceScenePath, faction);
 
-            SpawnToken(Cells[new(1, 0)], unitTokenScenePath, "enemy");
+            CreateBoardPiece(Cells[new(1, 0)], boardPieceScenePath, "enemy");
         }
 
         protected override void Dispose(bool disposing)
         {
-            EmitSignal(SignalName.Disposing, this);
+            EventBus.Unsubscribe<BoardPieceActionBar_InteractionButtonClickedEvent>(BoardPieceActionBar_InteractionButtonClicked);
+
+            EventBus.Unsubscribe<BoardPiece_DisposingEvent>(BoardPiece_Disposing);
+            EventBus.Unsubscribe<BoardPiece_HealthAtMinEvent>(BoardPiece_HealthAtMin);
+
+            EventBus.Unsubscribe<BoardPieceMovement_PositionChangedEvent>(BoardPieceMovement_PositionChanged);
+
+            EventBus.Emit(new GameBoard_DisposingEvent(this));
 
             base.Dispose(disposing);
         }
@@ -156,7 +110,7 @@ namespace Shadowfront.Backend.Board
 
                     Debugger.Log(2, "Info", $"{mapSpaceClickLocation}\n");
 
-                    CellPrimaryTouch(mapSpaceClickLocation);
+                    HandleCellPrimaryTouched(mapSpaceClickLocation);
                 }
 
                 if (mouseevent.ButtonIndex == MouseButton.Right && mouseevent.Pressed)
@@ -167,7 +121,7 @@ namespace Shadowfront.Backend.Board
 
                     Debugger.Log(2, "Info", $"{mapSpaceClickLocation}\n");
 
-                    CellSecondaryTouch(mapSpaceClickLocation);
+                    HandleCellSecondaryTouched(mapSpaceClickLocation);
                 }
             }
         }
@@ -194,7 +148,7 @@ namespace Shadowfront.Backend.Board
 
             foreach (var cell in usedCells)
             {
-                Cells.Add(cell, new(this, cell, count));
+                Cells.Add(cell, new(cell, count));
 
                 count++;
 
@@ -226,11 +180,6 @@ namespace Shadowfront.Backend.Board
             else
             {
                 Debugger.Log(0, "INFO", $"{string.Join(" -> ", path)}\n");
-
-                foreach(var node in path)
-                {
-                    SetCellStyle(new((int)node.X, (int)node.Y), Styles.InRange);
-                }
             }
         }
 
@@ -260,135 +209,126 @@ namespace Shadowfront.Backend.Board
             return aStar;
         }
 
-        public void SetCellStyle(Vector2I cell, Styles style)
+        public void HandleCellPrimaryTouched(Vector2I cellCoordinates)
         {
-            var styleIndex = StylesIndex[style];
+            // Get the cell that was interacted with.
+            if (!Cells.TryGetValue(cellCoordinates, out var cell))
+                return;
 
-            SetCell(
-                GROUND_LAYER_INDEX,
+            // If we interacted with the currently-active cell...
+            if (ActiveCell == cell)
+            {
+                // Deactivate the cell.
+                DeactivateCell();
+
+                return;
+            }
+
+            // If we interacted with a cell that has a board piece...
+            if (cell.BoardPiece?.Faction == "player")
+            {
+                // Activate the cell.
+                ActivateCell(cell);
+
+                return;
+            }
+
+            if (_activeInteraction is null)
+            {
+                // Deactivate the cell.
+                DeactivateCell();
+
+                return;
+            }
+
+            // If we already have an active board piece and clicked somewhere else... 
+            if (ActiveCell is not null && ActiveBoardPiece is not null)
+            {
+                var activeCell = ActiveCell;
+                var activeBoardPiece = ActiveBoardPiece;
+                var activeInteraction = _activeInteraction;
+
+                // Deactivate everything.
+                DeactivateCell();
+
+                activeInteraction.Perform(new(
+                    ActingCell: activeCell,
+                    ActingPiece: activeBoardPiece,
+                    TargetPiece: cell.BoardPiece,
+                    TargetCell: cell
+                ));
+
+                return;
+            }
+
+            // Create a new board piece in the cell we interacted with. 
+
+            var faction = "player"; // DevWindow.Instance.SelectedFaction;
+            var unitTokenScenePath = "res://Frontend/UI/Controls/GameBoard/UnitTokens/ClaireUnitTokenScene.tscn"; // DevWindow.Instance.SelectedTokenType;
+
+            if (faction is null)
+                throw new Exception("No faction given");
+
+            if (unitTokenScenePath is null)
+                throw new Exception("No token type given");
+
+            CreateBoardPiece(
                 cell,
-                sourceId: DEFAULT_TILESET_ID,
-                atlasCoords: new(styleIndex.X, styleIndex.Y),
-                alternativeTile: styleIndex.Z
+                unitTokenScenePath,
+                faction
             );
         }
 
-        public bool CellIsStyle(Vector2I cell, Styles style)
+        public void HandleCellSecondaryTouched(Vector2I cellCoordinates)
         {
-            var styleIndex = StylesIndex[style];
-
-            if (GetCellAtlasCoords(GROUND_LAYER_INDEX, cell) != new Vector2I(styleIndex.X, styleIndex.Y))
-                return false;
-
-            if (GetCellAlternativeTile(GROUND_LAYER_INDEX, cell) != styleIndex.Z)
-                return false;
-
-            return true;
-        }
-
-        public void RemoveCellStyles(Vector2I cell, IEnumerable<Styles> styles)
-        {
-            foreach (var style in styles)
-            {
-                if (!CellIsStyle(cell, style))
-                    continue;
-
-                SetCellStyle(cell, Styles.Default);
-
-                return;
-            }
-        }
-
-        public void RemoveCellStyles(Vector2I cell, params Styles[] styles)
-        {
-            RemoveCellStyles(cell, styles.AsEnumerable());
-        }
-
-        public void CellPrimaryTouch(Vector2I cellCoordinates)
-        {
-            if (!Cells.TryGetValue(cellCoordinates, out var c))
+            if (!Cells.TryGetValue(cellCoordinates, out var cell))
                 throw new KeyNotFoundException(cellCoordinates.ToString());
 
-            c.OnPrimaryTouch();
+            if (ActiveCell == cell)
+                return; // NOOP
+
+            // NOOP
         }
 
-        public void CellSecondaryTouch(Vector2I cellCoordinates)
+        public void ActivateCell(GameBoardCell cell)
         {
-            if (!Cells.TryGetValue(cellCoordinates, out var c))
-                throw new KeyNotFoundException(cellCoordinates.ToString());
+            DeactivateCell();
 
-            c.OnSecondaryTouch();
-        }
-
-        public void OnCellMouseOver(Vector2I cellCoordinates)
-        {
-            if (!Cells.TryGetValue(cellCoordinates, out var c))
-                throw new KeyNotFoundException(cellCoordinates.ToString());
-
-            c.OnHover();
-        }
-
-        public void SelectCell(GameBoardCell cell)
-        {
-            ClearSelectedCell();
-
-            SelectedCell = cell;
-            cell.IsSelected = true;
-
-            //SetCellStyle(cell.BoardPosition, Styles.Selected);
+            ActiveCell = cell;
 
             CellOutliner?.SetCellStyle(MapToLocal(cell.BoardPosition), CellOutliner.CellStyles.Selected);
 
-            EmitSignal(SignalName.CellSelected, cell.BoardPosition);
-
-            if (SelectedToken is not null)
+            if (ActiveBoardPiece is not null)
             {
-                EmitSignal(SignalName.UnitTokenSelected, SelectedToken);
-
-                ShowTokenMovementRange(SelectedToken);
+                EventBus.Emit(new GameBoard_BoardPieceActivatedEvent { BoardPiece = ActiveBoardPiece });
             }
         }
 
-        public void ClearSelectedCell()
+        public void DeactivateCell()
         {
-            if (SelectedCell is null)
+            _activeInteraction = null;
+
+            if (ActiveCell is null)
                 return;
 
-            var cell = SelectedCell.BoardPosition;
-            var selectedToken = SelectedToken;
+            var cell = ActiveCell.BoardPosition;
+            var activeBoardPiece = ActiveBoardPiece;
 
-            SelectedCell.IsSelected = false;
-            SelectedCell = null;
-
-            //RemoveCellStyles(cell, Styles.Selected);
+            ActiveCell = null;
 
             CellOutliner?.RemoveCellStyle(MapToLocal(cell), CellOutliner.CellStyles.Selected);
 
-            EmitSignal(SignalName.CellUnselected, cell);
+            ClearBoardPieceMovementRange();
 
-            if (selectedToken is not null)
+            if (activeBoardPiece is not null)
             {
-                EmitSignal(SignalName.UnitTokenUnselected, selectedToken);
-
-                ClearTokenMovementRange();
+                EventBus.Emit(new GameBoard_BoardPieceDectivatedEvent { BoardPiece = activeBoardPiece });
             }
         }
 
         public void ClearHoveredCell()
         {
-            if(HoveredCell is null)
-                return;
-
-            HoveredCell.IsHovered = false;
-            var cell = HoveredCell;
-
-            HoveredCell = null;
-
-            //RemoveCellStyles(cell.BoardPosition, Styles.Hovered);
-
-            CellOutliner?.RemoveCellStyle(MapToLocal(cell.BoardPosition), CellOutliner.CellStyles.Hover);
-
-            EmitSignal(SignalName.CellUnhovered, cell.BoardPosition);
+            CellOutliner?.RemoveCellsWithStyle(CellOutliner.CellStyles.Hover);
         }
 
         public void CellHover(Vector2I cell)
@@ -398,106 +338,62 @@ namespace Shadowfront.Backend.Board
             if (!Cells.TryGetValue(cell, out var gameCell))
                 return;
 
-            gameCell.OnHover();
-        }
-
-        public void HoverCell(GameBoardCell cell)
-        {
             ClearHoveredCell();
 
-            cell.IsHovered = true;
-            HoveredCell = cell;
-
-            //SetCellStyle(cell.BoardPosition, Styles.Hovered);
-
-            CellOutliner?.SetCellStyle(MapToLocal(cell.BoardPosition), CellOutliner.CellStyles.Hover);
-
-            EmitSignal(SignalName.CellHovered, cell.BoardPosition);
+            CellOutliner?.SetCellStyle(MapToLocal(gameCell.BoardPosition), CellOutliner.CellStyles.Hover, CellOutliner.CellStyles.None);
         }
 
-        public void MoveToken(UnitToken token, GameBoardCell from, GameBoardCell to)
+        private void BoardPieceMovement_PositionChanged(BoardPieceMovement_PositionChangedEvent e)
         {
-            if (token.BoardPieceMovement is null)
-                return;
+            var from = Cells[e.PreviousPosition];
+            var to = Cells[e.NewPosition];
 
-            if(!token.BoardPieceMovement.MoveTo(to.BoardPosition))
-                return;
+            // Set the visible node position on screen.
+            e.BoardPiece.Position = this.GetLocalFromCell(to.BoardPosition);
 
-            token.Position = this.GetLocalFromCell(to.BoardPosition);
+            from.RemoveBoardPiece();
 
-            from.RemoveToken();
+            to.SetBoardPiece(e.BoardPiece);
 
-            to.SetToken(token);
-
-            _tokenCells[token] = to;
-
-            EmitSignal(SignalName.UnitTokenMoved, token, from.BoardPosition, to.BoardPosition);
-
-            ClearTokenMovementRange();
+            _boardPieceCells[e.BoardPiece] = to;
         }
 
-        public UnitToken? SpawnToken(GameBoardCell cell, string unitScenePath, string faction)
+        public BoardPiece? CreateBoardPiece(GameBoardCell cell, string boardPieceScenePath, string faction)
         {
-            if (cell.UnitToken is not null)
+            if (cell.BoardPiece is not null)
                 return null;
 
-            var packedScene = GD.Load<PackedScene>(unitScenePath);
-            var token = packedScene.Instantiate<UnitToken>();
+            var packedScene = GD.Load<PackedScene>(boardPieceScenePath);
+            var boardPiece = packedScene.Instantiate<BoardPiece>();
 
-            token.Faction = faction;
+            boardPiece.Faction = faction;
 
-            token.Position = this.GetLocalFromCell(cell.BoardPosition);
-            token.ZIndex = 1;
+            boardPiece.Position = this.GetLocalFromCell(cell.BoardPosition);
+            boardPiece.ZIndex = 1;
 
-            void TokenReady()
+            void BoardPieceReady()
             {
-                if (token.BoardPieceHealth is not null)
-                {
-                    token.BoardPieceHealth.HealthChanged += Token_HealthChanged;
-                    //token.BoardPieceHealth.HealthAtMin += Token_HealthReachedZero;
-                }
+                boardPiece.Ready -= BoardPieceReady;
 
-                if (token.BoardPieceMovement is not null)
+                if (boardPiece.BoardPieceMovement is not null)
                 {
-                    token.BoardPieceMovement.SetAvailableCells(GetUsedCells(GROUND_LAYER_INDEX));
+                    boardPiece.BoardPieceMovement.SetAvailableCells(GetUsedCells(GROUND_LAYER_INDEX));
 
-                    token.BoardPieceMovement.ForcePosition(cell.BoardPosition);
+                    boardPiece.BoardPieceMovement.ForcePosition(cell.BoardPosition);
                 }
             }
 
-            void TokenDisposing(Node sender)
-            {
-                if (sender is not UnitToken token)
-                    return;
+            boardPiece.Ready += BoardPieceReady;
 
-                token.Disposing -= TokenDisposing;
-                token.Ready -= TokenReady;
-                //token.HealthChanged -= Token_HealthChanged;
-                //token.HealthReachedZero -= Token_HealthReachedZero;
+            cell.SetBoardPiece(boardPiece);
+            _boardPieces.Add(boardPiece);
+            _boardPieceCells.Add(boardPiece, cell);
 
-                // Remove from the master list.
-                _tokens.Remove(token);
-
-                // Remove from the cell's items.
-                _tokenCells[token].RemoveToken();
-
-                EmitSignal(SignalName.UnitTokenDisposing, token);
-
-                token.Free();
-            }
-
-            token.Disposing += TokenDisposing;
-            token.Ready += TokenReady;
-
-            cell.SetToken(token);
-            _tokens.Add(token);
-            _tokenCells.Add(token, cell);
-
-            EmitSignal(SignalName.UnitTokenCreated, token, cell.BoardPosition);
+            EventBus.Emit(new GameBoard_BoardPiecePlacedEvent(boardPiece, cell.BoardPosition));
 
 
 
-            var sprite = token.GetNode<AnimatedSprite2D>("AnimatedSprite2D");
+            var sprite = boardPiece.GetNode<AnimatedSprite2D>("AnimatedSprite2D");
 
             if (sprite is null)
                 throw new Exception("Could not find sprite");
@@ -506,94 +402,81 @@ namespace Shadowfront.Backend.Board
 
 
 
-            AddChild(token);
+            AddChild(boardPiece);
 
-            return token;
+            return boardPiece;
         }
 
-        private void Token_HealthChanged(BoardPieceHealth sender, float previousHealth, float newHealth)
+        private void BoardPiece_HealthAtMin(BoardPiece_HealthAtMinEvent e)
         {
-            EmitSignal(SignalName.UnitTokenHealthChanged, sender, previousHealth, newHealth);
+            e.BoardPiece.Dispose();
+        }
 
-            var damageLabel = new Label()
+        private void BoardPiece_Disposing(BoardPiece_DisposingEvent e)
+        {
+            // Remove from the master list.
+            _boardPieces.Remove(e.BoardPiece);
+
+            e.BoardPiece.QueueFree();
+        }
+
+        public void BoardPieceActionBar_InteractionButtonClicked(BoardPieceActionBar_InteractionButtonClickedEvent e)
+        {
+            if (ActiveBoardPiece is null)
+                return;
+
+            _activeInteraction = e.Interaction;
+
+            switch(e.Interaction)
             {
-                HorizontalAlignment = HorizontalAlignment.Center,
-                VerticalAlignment = VerticalAlignment.Center,
-                Text = $"{newHealth - previousHealth:n0}",
-                Position = new Vector2(20, -30),
-            };
-            damageLabel.AddThemeColorOverride("font_color", Colors.Red);
-            damageLabel.AddThemeFontSizeOverride("font_size", 30);
-            GetTree().Root.AddChild(damageLabel);
+                case BoardPieceMovement _:
+                    ShowBoardPieceMovementRange(ActiveBoardPiece);
+                    break;
 
-            var tween = damageLabel.CreateTween();
-            tween.TweenProperty(damageLabel, "position", damageLabel.Position + new Vector2(0, -40), 1f).SetTrans(Tween.TransitionType.Expo);
+                default:
+                    throw new NotImplementedException();
+            }
 
-            var timer = GetTree().CreateTimer(1);
-            timer.Timeout += () => damageLabel.QueueFree();
         }
 
-        private void Token_HealthReachedZero(UnitToken token)
+        private void ShowBoardPieceMovementRange(BoardPiece boardPiece)
         {
-            EmitSignal(SignalName.UnitTokenHealthReachedZero, token);
+            ClearBoardPieceMovementRange();
 
-            token.Dispose();
-        }
+            var movement = boardPiece.BoardPieceMovement;
 
-        public void ShowTokenMovementRange(UnitToken token)
-        {
-            if (token.BoardPieceMovement is null)
+            if (movement is null)
                 return;
 
-            if (!_tokenCells.TryGetValue(token, out var tokenCell))
+            var position = movement.Position;
+
+            if (!Cells.TryGetValue(position, out var boardPieceCell))
                 return;
 
-            var range = token.BoardPieceMovement.MaximumMoveRange;
-            var movementCells = token.BoardPieceMovement.CellsInRange
+            var range = movement.MaximumRange;
+            var movementCells = movement.CellsInRange
                 .Select(f => Cells[f])
-                .Where(f => f != SelectedCell)
                 .ToHashSet();
 
             if (movementCells.Count == 0)
-            {
-                CellsWithinMovementRange?.Clear();
-
                 return;
-            }
 
-            CellsWithinMovementRange = movementCells;
+            var cellPositions = movementCells.Select(f => MapToLocal(f.BoardPosition));
 
-            foreach (var cell in movementCells)
-            {
-                cell.IsInMovementRange = true;
-
-                //SetCellStyle(cell.BoardPosition, Styles.InRange);
-            }
-
-            CellOutliner?.SetCellStyle(movementCells.Select(f => MapToLocal(f.BoardPosition)), CellOutliner.CellStyles.MovementRange);
-
-            EmitSignal(SignalName.ShowUnitTokenMovementRange,
-                new Godot.Collections.Array<Vector2I>(movementCells.Select(f => f.BoardPosition)));
+            CellOutliner?.SetCellStyle(cellPositions, CellOutliner.CellStyles.MovementRange);
         }
 
-        public void ClearTokenMovementRange()
+        private void ClearBoardPieceMovementRange()
         {
-            if (CellsWithinMovementRange is null || CellsWithinMovementRange.Count == 0)
-                return;
-
-            foreach (var cell in CellsWithinMovementRange)
-            {
-                cell.IsInMovementRange = false;
-
-                //RemoveCellStyles(cell.BoardPosition, Styles.InRange);
-            }
-
-            CellOutliner?.RemoveCellStyle(CellsWithinMovementRange.Select(f => MapToLocal(f.BoardPosition)), CellOutliner.CellStyles.MovementRange);
-
-            EmitSignal(SignalName.ClearUnitTokenMovementRange,
-                new Godot.Collections.Array<Vector2I>(CellsWithinMovementRange.Select(f => f.BoardPosition)));
-
-            CellsWithinMovementRange?.Clear();
+            CellOutliner?.RemoveCellsWithStyle(CellOutliner.CellStyles.MovementRange);
         }
     }
+
+    public readonly record struct GameBoard_DisposingEvent(GameBoard GameBoard) : IEventType;
+
+    public readonly record struct GameBoard_BoardPieceActivatedEvent(BoardPiece BoardPiece) : IEventType;
+
+    public readonly record struct GameBoard_BoardPieceDectivatedEvent(BoardPiece BoardPiece) : IEventType;
+
+    public readonly record struct GameBoard_BoardPiecePlacedEvent(BoardPiece BoardPiece, Vector2I Position) : IEventType;
 }

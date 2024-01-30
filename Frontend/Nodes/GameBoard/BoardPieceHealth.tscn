@@ -1,6 +1,6 @@
 [gd_scene load_steps=2 format=3 uid="uid://cevp4lydu6k1x"]
 
-[ext_resource type="Script" path="res://Backend/Board/BoardPieceHealth.cs" id="1_untgv"]
+[ext_resource type="Script" path="res://Backend/Board/BoardPieces/Behaviors/BoardPieceHealth.cs" id="1_5ivnw"]
 
 [node name="BoardPieceHealth" type="Node"]
-script = ExtResource("1_untgv")
+script = ExtResource("1_5ivnw")

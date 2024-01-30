@@ -79,14 +79,14 @@ public partial class CellOutliner : Node2D
     {
         QueueRedraw();
 
-        var cellData = _cellsList.FirstOrDefault(f => f.Position == position);
+        var allCellData = _cellsList.Where(f => f.Position == position).ToList();
 
-        if (cellData is null)
+        if (allCellData.Count == 0)
         {
             if (style == CellStyles.None)
                 return;
 
-            cellData = new CellOutlineData()
+            var cellData = new CellOutlineData()
             {
                 Position = position,
                 Style = style,
@@ -98,17 +98,20 @@ public partial class CellOutliner : Node2D
             return;
         }
 
-        if (onlyIfInStyle is not null && cellData.Style != onlyIfInStyle)
-            return;
-
-        if (style == CellStyles.None)
+        foreach (var cellData in allCellData)
         {
-            _cellsList.Remove(cellData);
+            if (onlyIfInStyle is not null && cellData.Style != onlyIfInStyle)
+                return;
 
-            return;
+            if (style == CellStyles.None)
+            {
+                _cellsList.Remove(cellData);
+
+                return;
+            }
+
+            cellData.Style = style;
         }
-
-        cellData.Style = style;
     }
 
     public void SetCellStyle(IEnumerable<Vector2> positions, CellStyles style)

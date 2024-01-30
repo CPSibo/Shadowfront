@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://cfi7rwcjnqfbp"]
+
+[ext_resource type="Script" path="res://Backend/Board/BoardPieces/Behaviors/Interactions/Attacks/BoardPieceGunAbility.cs" id="1_0a4w8"]
+
+[node name="BoardPieceGunAbility" type="Node"]
+script = ExtResource("1_0a4w8")

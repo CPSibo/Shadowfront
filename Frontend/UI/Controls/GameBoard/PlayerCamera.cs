@@ -1,4 +1,6 @@
 using Godot;
+using Shadowfront.Backend;
+using Shadowfront.Backend.Board;
 
 public partial class PlayerCamera : Camera2D
 {
@@ -12,6 +14,22 @@ public partial class PlayerCamera : Camera2D
     public float ZoomSpeed { get; set; } = 0.5f;
 
     private Tween? _zoomTween = null;
+
+    private Tween? _positionTween = null;
+
+    public override void _Ready()
+    {
+        base._Ready();
+
+        EventBus.Subscribe<GameBoard_BoardPieceActivatedEvent>(GameBoard_BoardPieceActivated);
+    }
+
+    public override void _ExitTree()
+    {
+        EventBus.Unsubscribe<GameBoard_BoardPieceActivatedEvent>(GameBoard_BoardPieceActivated);
+
+        base._ExitTree();
+    }
 
     public override void _Process(double delta)
     {
@@ -38,6 +56,8 @@ public partial class PlayerCamera : Camera2D
 
         if (desiredPanVector.IsZeroApprox())
             return;
+
+        _positionTween?.Kill();
 
         desiredPanVector *= PanSpeed * (float)delta;
 
@@ -77,5 +97,17 @@ public partial class PlayerCamera : Camera2D
 
         _zoomTween = CreateTween();
         _zoomTween.TweenProperty(this, "zoom", newZoom, 0.15f);
+    }
+
+    private void GameBoard_BoardPieceActivated(GameBoard_BoardPieceActivatedEvent e)
+    {
+        var boardPiecePosition = e.BoardPiece.Position;
+
+        _positionTween?.Kill();
+
+        _positionTween = CreateTween();
+        _positionTween.TweenProperty(this, "position", boardPiecePosition, 0.5f)
+            .SetTrans(Tween.TransitionType.Quad)
+            .SetEase(Tween.EaseType.InOut);
     }
 }
