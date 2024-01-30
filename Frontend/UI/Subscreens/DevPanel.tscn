@@ -1,0 +1,70 @@
+[gd_scene load_steps=3 format=3 uid="uid://c7jhumpfseety"]
+
+[ext_resource type="Script" path="res://Frontend/UI/Subscreens/DevPanel.cs" id="1_ki7bf"]
+[ext_resource type="Script" path="res://Frontend/UI/Subscreens/BoardPieces.cs" id="2_lf4av"]
+
+[node name="DevPanel" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_ki7bf")
+
+[node name="Panel" type="Panel" parent="."]
+layout_mode = 0
+offset_right = 375.0
+offset_bottom = 402.0
+
+[node name="TabContainer" type="TabContainer" parent="Panel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Board Pieces" type="GridContainer" parent="Panel/TabContainer"]
+layout_mode = 2
+columns = 2
+script = ExtResource("2_lf4av")
+
+[node name="BoardPieceLabel" type="Label" parent="Panel/TabContainer/Board Pieces"]
+layout_mode = 2
+text = "Board Piece"
+
+[node name="BoardPiece" type="OptionButton" parent="Panel/TabContainer/Board Pieces"]
+layout_mode = 2
+item_count = 1
+popup/item_0/text = "Claire"
+popup/item_0/id = 0
+
+[node name="TeamLabel" type="Label" parent="Panel/TabContainer/Board Pieces"]
+layout_mode = 2
+text = "Team
+"
+
+[node name="Team" type="OptionButton" parent="Panel/TabContainer/Board Pieces"]
+layout_mode = 2
+
+[node name="LocationLabel" type="Label" parent="Panel/TabContainer/Board Pieces"]
+layout_mode = 2
+text = "Location"
+
+[node name="HBoxContainer" type="HBoxContainer" parent="Panel/TabContainer/Board Pieces"]
+layout_mode = 2
+
+[node name="X" type="SpinBox" parent="Panel/TabContainer/Board Pieces/HBoxContainer"]
+layout_mode = 2
+min_value = -100.0
+prefix = "X: "
+
+[node name="Y" type="SpinBox" parent="Panel/TabContainer/Board Pieces/HBoxContainer"]
+layout_mode = 2
+min_value = -100.0
+prefix = "Y: "
+
+[node name="CreateBoardPiece" type="Button" parent="Panel/TabContainer/Board Pieces"]
+layout_mode = 2
+text = "Create"

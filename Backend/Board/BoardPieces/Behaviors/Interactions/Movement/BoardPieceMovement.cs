@@ -5,9 +5,9 @@ using System.Linq;
 
 namespace Shadowfront.Backend.Board.BoardPieces.Behaviors.Interactions.Movement
 {
-    public partial class BoardPieceMovement : BoardPieceInteraction
+    public partial class BoardPieceMovement : BoardPieceInteraction, IHasRange
     {
-        private Vector2I _position;
+        private Vector2I _position = Vector2I.MinValue;
 
         /// <summary>
         /// The item's current position.
@@ -18,14 +18,14 @@ namespace Shadowfront.Backend.Board.BoardPieces.Behaviors.Interactions.Movement
         /// The maximum number of tiles the piece can move.
         /// </summary>
         [Export]
-        public int MaximumRange { get; set; }
+        public int MaxRange { get; set; }
 
         // TODO: Not implemented.
         /// <summary>
         /// The minimum number of tiles the piece can move.
         /// </summary>
         [Export]
-        public int MinimumRange { get; set; }
+        public int MinRange { get; set; }
 
         /// <summary>
         /// Whether the current piece can attempt to move.
@@ -45,19 +45,19 @@ namespace Shadowfront.Backend.Board.BoardPieces.Behaviors.Interactions.Movement
         {
             _availableCells = [.. availableCells];
 
-            _cellsInrange = ComputeMovementTargets();
+            _cellsInrange = ComputeCellsInRange();
         }
 
         /// <summary>
         /// Compute the valid movement targets for the piece.
         /// </summary>
-        private HashSet<Vector2I> ComputeMovementTargets()
+        private HashSet<Vector2I> ComputeCellsInRange()
         {
-            if (MaximumRange <= 0)
+            if (MaxRange <= 0)
                 return [];
 
             return HexTileMapUtils
-                .GetActualCellsWithinRange(_availableCells, Position, MaximumRange)
+                .GetActualCellsWithinRange(_availableCells, Position, MaxRange)
                 .Where(f => f != Position)
                 .ToHashSet();
         }
@@ -74,7 +74,7 @@ namespace Shadowfront.Backend.Board.BoardPieces.Behaviors.Interactions.Movement
             if(!Enabled)
                 return false;
 
-            if (MaximumRange <= 0)
+            if (MaxRange <= 0)
                 return false;
 
             if (position == _position)
@@ -95,7 +95,7 @@ namespace Shadowfront.Backend.Board.BoardPieces.Behaviors.Interactions.Movement
 
             _position = desiredPosition;
 
-            _cellsInrange = ComputeMovementTargets();
+            _cellsInrange = ComputeCellsInRange();
 
             EventBus.Emit(new BoardPieceMovement_PositionChangedEvent(_boardPiece, previousPosition, _position));
         }
@@ -122,7 +122,7 @@ namespace Shadowfront.Backend.Board.BoardPieces.Behaviors.Interactions.Movement
 
             _position = desiredPosition;
 
-            _cellsInrange = ComputeMovementTargets();
+            _cellsInrange = ComputeCellsInRange();
 
             EventBus.Emit(new BoardPieceMovement_PositionChangedEvent(_boardPiece, previousPosition, _position));
 

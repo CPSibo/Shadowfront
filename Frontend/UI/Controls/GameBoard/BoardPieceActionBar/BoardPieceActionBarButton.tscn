@@ -2,25 +2,9 @@
 
 [ext_resource type="Script" path="res://Frontend/UI/Controls/GameBoard/BoardPieceActionBar/BoardPieceActionBarButton.cs" id="1_rph1x"]
 
-[node name="Button" type="Control"]
+[node name="Button" type="Button"]
 custom_minimum_size = Vector2(25, 35)
-layout_mode = 3
-anchors_preset = 0
 mouse_filter = 1
 mouse_default_cursor_shape = 2
-script = ExtResource("1_rph1x")
-
-[node name="TextureRect" type="TextureRect" parent="."]
-layout_mode = 2
-offset_left = -8.0
-offset_right = -8.0
-offset_bottom = 40.0
-
-[node name="Label" type="Label" parent="."]
-layout_mode = 2
-offset_left = -8.0
-offset_right = 32.0
-offset_bottom = 40.0
 text = "?"
-horizontal_alignment = 1
-vertical_alignment = 1
+script = ExtResource("1_rph1x")

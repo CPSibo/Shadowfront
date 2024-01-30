@@ -9,7 +9,7 @@ public partial class CellOutliner : Node2D
     {
         public Vector2 Position { get; set; }
 
-        public CellStyles Style { get; set; }
+        public Color Color { get; set; }
 
         public Vector2[] Points { get; set; } = [];
     }
@@ -23,37 +23,12 @@ public partial class CellOutliner : Node2D
 
     private float _squareRootThreeTimesHalfSideLength = 0f;
 
-    public enum CellStyles
-    {
-        None,
-        Hover,
-        Selected,
-        MovementRange,
-        AttackRange,
-    }
-
-    private Dictionary<CellStyles, Color> _styleColors = new()
-    {
-        { CellStyles.None, Colors.Transparent },
-        { CellStyles.Hover, new(0x00000055) },
-        { CellStyles.Selected, new(0xffce9555) },
-        { CellStyles.MovementRange, new(0x00aaef55) },
-        { CellStyles.AttackRange, new(0xef555555) },
-    };
-
-    private List<CellOutlineData> _cellsList = [];
+    private Dictionary<string, List<CellOutlineData>> _cellsList = [];
 
     public CellOutliner()
     {
         _halfHexagonSideLength = TileSideLength / 2f;
         _squareRootThreeTimesHalfSideLength = SQUARE_ROOT_THREE * _halfHexagonSideLength;
-    }
-
-    public void RemoveCellsWithStyle(CellStyles style)
-    {
-        _cellsList.RemoveAll(f => f.Style == style);
-
-        QueueRedraw();
     }
 
     public void ClearAllCells()
@@ -63,83 +38,13 @@ public partial class CellOutliner : Node2D
         QueueRedraw();
     }
 
-    public void RemoveCell(Vector2 position)
-    {
-        SetCellStyle(position, CellStyles.None);
-    }
-
-    public void RemoveAllCellsInRange(IEnumerable<Vector2> range)
-    {
-        _cellsList.RemoveAll(f => range.Contains(f.Position));
-
-        QueueRedraw();
-    }
-
-    public void SetCellStyle(Vector2 position, CellStyles style, CellStyles? onlyIfInStyle = null)
-    {
-        QueueRedraw();
-
-        var allCellData = _cellsList.Where(f => f.Position == position).ToList();
-
-        if (allCellData.Count == 0)
-        {
-            if (style == CellStyles.None)
-                return;
-
-            var cellData = new CellOutlineData()
-            {
-                Position = position,
-                Style = style,
-                Points = GetHexagonPoints(position),
-            };
-
-            _cellsList.Add(cellData);
-
-            return;
-        }
-
-        foreach (var cellData in allCellData)
-        {
-            if (onlyIfInStyle is not null && cellData.Style != onlyIfInStyle)
-                return;
-
-            if (style == CellStyles.None)
-            {
-                _cellsList.Remove(cellData);
-
-                return;
-            }
-
-            cellData.Style = style;
-        }
-    }
-
-    public void SetCellStyle(IEnumerable<Vector2> positions, CellStyles style)
-    {
-        foreach(var position in positions)
-        {
-            SetCellStyle(position, style);
-        }
-    }
-
-    public void RemoveCellStyle(Vector2 position, CellStyles style)
-    {
-        SetCellStyle(position, CellStyles.None, style);
-    }
-
-    public void RemoveCellStyle(IEnumerable<Vector2> positions, CellStyles style)
-    {
-        foreach (var position in positions)
-        {
-            RemoveCellStyle(position, style);
-        }
-    }
-
     public override void _Draw()
     {
-        foreach (var cell in _cellsList)
+        var allCellData = _cellsList.SelectMany(f => f.Value).ToList();
+
+        foreach (var cell in allCellData)
         {
-            DrawColoredPolygon(cell.Points, _styleColors[cell.Style]);
+            DrawColoredPolygon(cell.Points, cell.Color);
         }
 
         base._Draw();
@@ -170,7 +75,45 @@ public partial class CellOutliner : Node2D
 
         return
         [
-            a, b, c, d, e, f
+            a,
+            b,
+            c,
+            d,
+            e,
+            f
         ];
+    }
+
+    public void AddCellStyle(string source, Vector2 position, Color color)
+    {
+        QueueRedraw();
+
+        if (!_cellsList.TryGetValue(source, out var cellData))
+        {
+            cellData = [];
+            _cellsList.Add(source, cellData);
+        }
+
+        cellData.Add(new()
+        {
+            Position = position,
+            Color = color,
+            Points = GetHexagonPoints(position)
+        });
+    }
+
+    public void AddCellStyle(string source, IEnumerable<Vector2> positions, Color color)
+    {
+        foreach(var position in positions)
+        {
+            AddCellStyle(source, position, color);
+        }
+    }
+
+    public void RemoveSource(string source)
+    {
+        _cellsList.Remove(source);
+
+        QueueRedraw();
     }
 }

@@ -10,7 +10,7 @@ using System.Collections.Generic;
 
 namespace Shadowfront.Frontend.UI.Subscreens
 {
-    public partial class BoardPieceActionBar : CanvasLayer
+    public partial class BoardPieceActionBar : Control
     {
         public BoardPiece? BoardPiece { get; set; }
 
@@ -79,7 +79,7 @@ namespace Shadowfront.Frontend.UI.Subscreens
 
                 var button = packedScene.Instantiate<BoardPieceActionBarButton>();
 
-                button.Label = interaction switch
+                button.Text = interaction switch
                 {
                     BoardPieceMovement movement => "M",
                     BoardPieceGunAbility movement => "G",

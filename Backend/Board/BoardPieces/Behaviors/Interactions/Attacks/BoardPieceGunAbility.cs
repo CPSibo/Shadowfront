@@ -1,11 +1,15 @@
+using Godot;
+
 namespace Shadowfront.Backend.Board.BoardPieces.Behaviors.Interactions.Attacks
 {
     public partial class BoardPieceGunAbility : BoardPieceRangedAbility
     {
+        public override Color RangeColor { get; } = new(0xef555555);
+
         public BoardPieceGunAbility()
         {
-            MaximumRange = 2;
-            MinimumRange = 1;
+            MaxRange = 2;
+            MinRange = 1;
             CanTargetOwnTeam = false;
         }
 

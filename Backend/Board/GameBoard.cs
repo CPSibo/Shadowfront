@@ -38,6 +38,14 @@ namespace Shadowfront.Backend.Board
 
         private BoardPieceInteraction? _activeInteraction = null;
 
+        private readonly Color HOVER_COLOR = new(0x00000055);
+
+        private readonly Color ACTIVE_COLOR = new(0xffce9555);
+
+        private const string ACTIVE_KEY = "active";
+
+        private const string HOVER_KEY = "hover";
+
         public override void _Ready()
         {
             TileSize = TileSet.TileSize;
@@ -52,6 +60,8 @@ namespace Shadowfront.Backend.Board
             EventBus.Subscribe<BoardPiece_HealthAtMinEvent>(BoardPiece_HealthAtMin);
 
             EventBus.Subscribe<BoardPieceMovement_PositionChangedEvent>(BoardPieceMovement_PositionChanged);
+
+            EventBus.Subscribe<GameBoard_BoardPieceCreationRequestedEvent>(BoardPieceCreationRequested);
 
             InitializeData();
 
@@ -80,6 +90,8 @@ namespace Shadowfront.Backend.Board
             EventBus.Unsubscribe<BoardPiece_HealthAtMinEvent>(BoardPiece_HealthAtMin);
 
             EventBus.Unsubscribe<BoardPieceMovement_PositionChangedEvent>(BoardPieceMovement_PositionChanged);
+
+            EventBus.Unsubscribe<GameBoard_BoardPieceCreationRequestedEvent>(BoardPieceCreationRequested);
 
             EventBus.Emit(new GameBoard_DisposingEvent(this));
 
@@ -167,6 +179,8 @@ namespace Shadowfront.Backend.Board
                 positionLabel.AddThemeFontSizeOverride("font_size", 10);
                 AddChild(positionLabel);
             }
+
+            EventBus.Emit(new GameBoard_GroundCellsChanged(Cells.Values));
 
             var navGraph = GenerateNavigationGraph();
 
@@ -296,16 +310,19 @@ namespace Shadowfront.Backend.Board
 
             ActiveCell = cell;
 
-            CellOutliner?.SetCellStyle(MapToLocal(cell.BoardPosition), CellOutliner.CellStyles.Selected);
+            CellOutliner?.AddCellStyle(ACTIVE_KEY, MapToLocal(cell.BoardPosition), ACTIVE_COLOR);
 
             if (ActiveBoardPiece is not null)
             {
-                EventBus.Emit(new GameBoard_BoardPieceActivatedEvent { BoardPiece = ActiveBoardPiece });
+                EventBus.Emit(new GameBoard_BoardPieceActivatedEvent(ActiveBoardPiece));
             }
         }
 
         public void DeactivateCell()
         {
+            if (_activeInteraction is not null)
+                CellOutliner?.RemoveSource(_activeInteraction.GetType().Name);
+
             _activeInteraction = null;
 
             if (ActiveCell is null)
@@ -316,19 +333,12 @@ namespace Shadowfront.Backend.Board
 
             ActiveCell = null;
 
-            CellOutliner?.RemoveCellStyle(MapToLocal(cell), CellOutliner.CellStyles.Selected);
-
-            ClearBoardPieceMovementRange();
+            CellOutliner?.RemoveSource(ACTIVE_KEY);
 
             if (activeBoardPiece is not null)
             {
-                EventBus.Emit(new GameBoard_BoardPieceDectivatedEvent { BoardPiece = activeBoardPiece });
+                EventBus.Emit(new GameBoard_BoardPieceDectivatedEvent(activeBoardPiece));
             }
-        }
-
-        public void ClearHoveredCell()
-        {
-            CellOutliner?.RemoveCellsWithStyle(CellOutliner.CellStyles.Hover);
         }
 
         public void CellHover(Vector2I cell)
@@ -338,24 +348,28 @@ namespace Shadowfront.Backend.Board
             if (!Cells.TryGetValue(cell, out var gameCell))
                 return;
 
-            ClearHoveredCell();
+            CellOutliner?.AddCellStyle(HOVER_KEY, MapToLocal(gameCell.BoardPosition), HOVER_COLOR);
+        }
 
-            CellOutliner?.SetCellStyle(MapToLocal(gameCell.BoardPosition), CellOutliner.CellStyles.Hover, CellOutliner.CellStyles.None);
+        public void ClearHoveredCell()
+        {
+            CellOutliner?.RemoveSource(HOVER_KEY);
         }
 
         private void BoardPieceMovement_PositionChanged(BoardPieceMovement_PositionChangedEvent e)
         {
-            var from = Cells[e.PreviousPosition];
-            var to = Cells[e.NewPosition];
+            if (Cells.TryGetValue(e.PreviousPosition, out var from))
+                from.RemoveBoardPiece();
 
-            // Set the visible node position on screen.
-            e.BoardPiece.Position = this.GetLocalFromCell(to.BoardPosition);
+            if (Cells.TryGetValue(e.NewPosition, out var to))
+            {
+                // Set the visible node position on screen.
+                e.BoardPiece.Position = this.GetLocalFromCell(to.BoardPosition);
 
-            from.RemoveBoardPiece();
+                to.SetBoardPiece(e.BoardPiece);
 
-            to.SetBoardPiece(e.BoardPiece);
-
-            _boardPieceCells[e.BoardPiece] = to;
+                _boardPieceCells[e.BoardPiece] = to;
+            }
         }
 
         public BoardPiece? CreateBoardPiece(GameBoardCell cell, string boardPieceScenePath, string faction)
@@ -375,11 +389,14 @@ namespace Shadowfront.Backend.Board
             {
                 boardPiece.Ready -= BoardPieceReady;
 
-                if (boardPiece.BoardPieceMovement is not null)
-                {
-                    boardPiece.BoardPieceMovement.SetAvailableCells(GetUsedCells(GROUND_LAYER_INDEX));
+                boardPiece.BoardPieceMovement?.ForcePosition(cell.BoardPosition);
 
-                    boardPiece.BoardPieceMovement.ForcePosition(cell.BoardPosition);
+                foreach(var interaction in boardPiece.Interactions)
+                {
+                    if(interaction is IHasRange rangedInteraction)
+                    {
+                        rangedInteraction.SetAvailableCells(GetUsedCells(GROUND_LAYER_INDEX));
+                    }
                 }
             }
 
@@ -407,6 +424,18 @@ namespace Shadowfront.Backend.Board
             return boardPiece;
         }
 
+        private void BoardPieceCreationRequested(GameBoard_BoardPieceCreationRequestedEvent e)
+        {
+            var location = e.Position;
+            var cell = Cells[location];
+
+            CreateBoardPiece(
+                boardPieceScenePath: e.BoardPieceScenePath,
+                cell: cell,
+                faction: e.Faction
+            );
+        }
+
         private void BoardPiece_HealthAtMin(BoardPiece_HealthAtMinEvent e)
         {
             e.BoardPiece.Dispose();
@@ -425,50 +454,16 @@ namespace Shadowfront.Backend.Board
             if (ActiveBoardPiece is null)
                 return;
 
+            if (_activeInteraction is not null)
+                CellOutliner?.RemoveSource(_activeInteraction.GetType().Name);
+
             _activeInteraction = e.Interaction;
 
-            switch(e.Interaction)
-            {
-                case BoardPieceMovement _:
-                    ShowBoardPieceMovementRange(ActiveBoardPiece);
-                    break;
-
-                default:
-                    throw new NotImplementedException();
-            }
-
-        }
-
-        private void ShowBoardPieceMovementRange(BoardPiece boardPiece)
-        {
-            ClearBoardPieceMovementRange();
-
-            var movement = boardPiece.BoardPieceMovement;
-
-            if (movement is null)
-                return;
-
-            var position = movement.Position;
-
-            if (!Cells.TryGetValue(position, out var boardPieceCell))
-                return;
-
-            var range = movement.MaximumRange;
-            var movementCells = movement.CellsInRange
-                .Select(f => Cells[f])
-                .ToHashSet();
-
-            if (movementCells.Count == 0)
-                return;
-
-            var cellPositions = movementCells.Select(f => MapToLocal(f.BoardPosition));
-
-            CellOutliner?.SetCellStyle(cellPositions, CellOutliner.CellStyles.MovementRange);
-        }
-
-        private void ClearBoardPieceMovementRange()
-        {
-            CellOutliner?.RemoveCellsWithStyle(CellOutliner.CellStyles.MovementRange);
+            if(_activeInteraction is IHasRange rangedInteraction)
+                CellOutliner?.AddCellStyle(
+                    rangedInteraction.GetType().Name,
+                    rangedInteraction.CellsInRange.Select(MapToLocal),
+                    rangedInteraction.RangeColor);
         }
     }
 
@@ -478,5 +473,9 @@ namespace Shadowfront.Backend.Board
 
     public readonly record struct GameBoard_BoardPieceDectivatedEvent(BoardPiece BoardPiece) : IEventType;
 
+    public readonly record struct GameBoard_BoardPieceCreationRequestedEvent(string BoardPieceScenePath, string Faction, Vector2I Position) : IEventType;
+
     public readonly record struct GameBoard_BoardPiecePlacedEvent(BoardPiece BoardPiece, Vector2I Position) : IEventType;
+
+    public readonly record struct GameBoard_GroundCellsChanged(IEnumerable<GameBoardCell> Cells) : IEventType;
 }

@@ -18,24 +18,58 @@ public partial class GameBoardScreen : Node2D
 
     private void BoardPiece_HealthChanged(BoardPiece_HealthChangedEvent e)
     {
+        var sourcePosition = e.BoardPiece.Position;
+
+        AddDamageLabel(sourcePosition, e.NewHealth - e.PreviousHealth);
+        AddBoardPieceDialog(sourcePosition, e.NewHealth > 0 ? "Taking fire!" : "I'm hit!");
+    }
+
+    private Label AddDamageLabel(Vector2 position, float damageAmount)
+    {
         var tree = GetTree();
 
-        var damageLabel = new Label()
+        var label = new Label()
         {
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
-            Text = $"{e.NewHealth - e.PreviousHealth:n0}",
-            Position = new Vector2(20, -30), // TODO
+            Text = $"{damageAmount:n0}",
+            Position = position + new Vector2(-30, -30),
         };
-        damageLabel.AddThemeColorOverride("font_color", Colors.Red);
-        damageLabel.AddThemeFontSizeOverride("font_size", 30);
-        tree.Root.AddChild(damageLabel);
+        label.AddThemeColorOverride("font_color", Colors.Red);
+        label.AddThemeFontSizeOverride("font_size", 30);
+        tree.Root.AddChild(label);
 
-        var tween = damageLabel.CreateTween();
-        tween.TweenProperty(damageLabel, "position", damageLabel.Position + new Vector2(0, -40), 1f)
-            .SetTrans(Tween.TransitionType.Expo);
+        var tween = label.CreateTween();
+        tween.TweenProperty(label, "position", label.Position + new Vector2(0, -40), 0.75f)
+            .SetTrans(Tween.TransitionType.Expo)
+            .SetEase(Tween.EaseType.Out);
 
-        tree.CreateTimer(1, processAlways: false)
-            .Timeout += () => damageLabel.QueueFree();
+        tree.CreateTimer(0.75d, processAlways: false)
+            .Timeout += () => label.QueueFree();
+
+        return label;
+    }
+
+    private Label AddBoardPieceDialog(Vector2 position, string text)
+    {
+        var tree = GetTree();
+
+        var label = new Label()
+        {
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+            SizeFlagsVertical = Control.SizeFlags.ExpandFill,
+            Text = text,
+            Position = position + new Vector2(30, -30),
+            ZIndex = 5,
+            ThemeTypeVariation = "BoardPieceDialogLabel"
+        };
+        tree.Root.AddChild(label);
+
+        tree.CreateTimer(1d, processAlways: false)
+            .Timeout += () => label.QueueFree();
+
+        return label;
     }
 }

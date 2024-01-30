@@ -1,10 +1,11 @@
-[gd_scene load_steps=6 format=3 uid="uid://lqgy6pdtn3sg"]
+[gd_scene load_steps=7 format=3 uid="uid://lqgy6pdtn3sg"]
 
 [ext_resource type="PackedScene" uid="uid://c8bki2kmt67oy" path="res://Frontend/Levels/TestLevel.tscn" id="1_5noj5"]
 [ext_resource type="Script" path="res://Frontend/UI/Screens/GameBoardScreen.cs" id="1_kqtm6"]
 [ext_resource type="Script" path="res://Frontend/UI/Controls/GameBoard/PlayerCamera.cs" id="1_oqvri"]
 [ext_resource type="Script" path="res://Frontend/Nodes/GameBoard/CellOutliner.cs" id="3_n60eu"]
 [ext_resource type="PackedScene" uid="uid://8upmh74qg4ve" path="res://Frontend/UI/Subscreens/BoardPieceActionBar.tscn" id="4_5hfbp"]
+[ext_resource type="PackedScene" uid="uid://c7jhumpfseety" path="res://Frontend/UI/Subscreens/DevPanel.tscn" id="6_gms7i"]
 
 [node name="GameBoardScreen" type="Node2D"]
 script = ExtResource("1_kqtm6")
@@ -21,5 +22,15 @@ z_index = 5
 script = ExtResource("3_n60eu")
 TileSideLength = 51.0
 
-[node name="BoardPieceActionBar" parent="." instance=ExtResource("4_5hfbp")]
+[node name="CanvasLayer" type="CanvasLayer" parent="."]
+
+[node name="BoardPieceActionBar" parent="CanvasLayer" instance=ExtResource("4_5hfbp")]
 visible = false
+
+[node name="DevPanel" parent="CanvasLayer" instance=ExtResource("6_gms7i")]
+visible = false
+anchors_preset = 0
+anchor_right = 0.0
+anchor_bottom = 0.0
+grow_horizontal = 1
+grow_vertical = 1
