@@ -1,6 +1,5 @@
 using Godot;
 using Shadowfront.Backend.Board.BoardPieces.Behaviors.Interactions.Movement;
-using Shadowfront.Backend.Utilities;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -34,30 +33,40 @@ namespace Shadowfront.Backend.Board.BoardPieces.Behaviors.Interactions.Attacks
 
         public abstract CellSearchRules CellSearchRules { get; }
 
+        private bool _rangeCalculationPending = false;
+
         public override void _Ready()
         {
             base._Ready();
 
             EventBus.Subscribe<BoardPieceMovement_PositionChangedEvent>(BoardPieceMovement_PositionChanged);
-            EventBus.Subscribe<GameBoard_BoardPiecePlacedEvent>(GameBoard_BoardPiecePlaced);
+            EventBus.Subscribe<GameBoard_NavGraphChangedEvent>(GameBoard_NavGraphChanged);
         }
 
         public override void _ExitTree()
         {
             EventBus.Unsubscribe<BoardPieceMovement_PositionChangedEvent>(BoardPieceMovement_PositionChanged);
-            EventBus.Unsubscribe<GameBoard_BoardPiecePlacedEvent>(GameBoard_BoardPiecePlaced);
+            EventBus.Unsubscribe<GameBoard_NavGraphChangedEvent>(GameBoard_NavGraphChanged);
 
             base._ExitTree();
         }
 
-        private void BoardPieceMovement_PositionChanged(BoardPieceMovement_PositionChangedEvent e)
+        public override void _Process(double delta)
         {
-            (_validCellsInRange, _cellsInrange) = ComputeCellsInRange();
+            base._Process(delta);
+
+            if (_rangeCalculationPending)
+                (_validCellsInRange, _cellsInrange) = ComputeCellsInRange();
         }
 
-        private void GameBoard_BoardPiecePlaced(GameBoard_BoardPiecePlacedEvent e)
+        private void BoardPieceMovement_PositionChanged(BoardPieceMovement_PositionChangedEvent e)
         {
-            (_validCellsInRange, _cellsInrange) = ComputeCellsInRange();
+            _rangeCalculationPending = true;
+        }
+
+        private void GameBoard_NavGraphChanged(GameBoard_NavGraphChangedEvent e)
+        {
+            _rangeCalculationPending = true;
         }
 
         /// <summary>
@@ -65,6 +74,8 @@ namespace Shadowfront.Backend.Board.BoardPieces.Behaviors.Interactions.Attacks
         /// </summary>
         private (HashSet<Vector2I>, HashSet<Vector2I>) ComputeCellsInRange()
         {
+            _rangeCalculationPending = false;
+
             if (MaxRange <= 0)
                 return ([], []);
 

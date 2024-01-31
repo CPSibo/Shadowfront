@@ -226,7 +226,25 @@ namespace Shadowfront.Backend.Utilities
 
             if(args.Rules.HasFlag(CellSearchRules.RequiresTraversablePath) && originBoardPiece is not null)
             {
-                // TODO: Pathfinding
+                var validCellsMaterialized = validCells.ToHashSet();
+
+                foreach(var cell in validCells)
+                {
+                    if (!args.GameBoard.Cells.TryGetValue(cell, out var targetGameBoardCell))
+                        throw new Exception("Cell not resolvable");
+
+                    var startId = originGameCell.Id;
+                    var targetId = targetGameBoardCell.Id;
+
+                    var path = args.GameBoard.NavGraph.GetPointPath(startId, targetId);
+
+                    if (path?.Length - 1 <= args.MaxRange && path?.Length - 1 >= args.MinRange)
+                        continue;
+
+                    validCellsMaterialized.Remove(cell);
+                }
+
+                validCells = validCellsMaterialized;
             }
 
             return new(validCells, hypotheticalCells.Except(validCells));

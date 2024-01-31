@@ -1,5 +1,4 @@
 using Godot;
-using Shadowfront.Backend.Utilities;
 using System.Collections.Generic;
 using System.Linq;
 using static Shadowfront.Backend.Utilities.HexTileMapUtils;
@@ -35,8 +34,6 @@ namespace Shadowfront.Backend.Board.BoardPieces.Behaviors.Interactions.Movement
 
         public Color RangeColor { get; } = new(0x00aaef55);
 
-        private HashSet<Vector2I> _availableCells = [];
-
         private HashSet<Vector2I> _cellsInrange = [];
 
         private HashSet<Vector2I> _validCellsInRange = [];
@@ -45,33 +42,33 @@ namespace Shadowfront.Backend.Board.BoardPieces.Behaviors.Interactions.Movement
 
         public HashSet<Vector2I> ValidCellsInRange => _validCellsInRange;
 
+        private bool _rangeCalculationPending = false;
+
         public override void _Ready()
         {
             base._Ready();
 
-            EventBus.Subscribe<BoardPieceMovement_PositionChangedEvent>(BoardPieceMovement_PositionChanged);
-            EventBus.Subscribe<GameBoard_BoardPiecePlacedEvent>(GameBoard_BoardPiecePlaced);
+            EventBus.Subscribe<GameBoard_NavGraphChangedEvent>(GameBoard_NavGraphChanged);
         }
 
         public override void _ExitTree()
         {
-            EventBus.Unsubscribe<BoardPieceMovement_PositionChangedEvent>(BoardPieceMovement_PositionChanged);
-            EventBus.Unsubscribe<GameBoard_BoardPiecePlacedEvent>(GameBoard_BoardPiecePlaced);
+            EventBus.Unsubscribe<GameBoard_NavGraphChangedEvent>(GameBoard_NavGraphChanged);
 
             base._ExitTree();
         }
 
-        private void BoardPieceMovement_PositionChanged(BoardPieceMovement_PositionChangedEvent e)
+        public override void _Process(double delta)
         {
-            (_validCellsInRange, _cellsInrange) = ComputeCellsInRange();
+            base._Process(delta);
+
+            if(_rangeCalculationPending)
+                (_validCellsInRange, _cellsInrange) = ComputeCellsInRange();
         }
 
-        private void GameBoard_BoardPiecePlaced(GameBoard_BoardPiecePlacedEvent e)
+        private void GameBoard_NavGraphChanged(GameBoard_NavGraphChangedEvent e)
         {
-            if (e.BoardPiece == _boardPiece)
-                return;
-
-            (_validCellsInRange, _cellsInrange) = ComputeCellsInRange();
+            _rangeCalculationPending = true;
         }
 
         /// <summary>
@@ -79,6 +76,8 @@ namespace Shadowfront.Backend.Board.BoardPieces.Behaviors.Interactions.Movement
         /// </summary>
         private (HashSet<Vector2I>, HashSet<Vector2I>) ComputeCellsInRange()
         {
+            _rangeCalculationPending = false;
+
             if (MaxRange <= 0)
                 return ([], []);
 

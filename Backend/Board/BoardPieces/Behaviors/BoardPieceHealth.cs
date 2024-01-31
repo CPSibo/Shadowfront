@@ -3,7 +3,7 @@ using System;
 
 namespace Shadowfront.Backend.Board.BoardPieces.Behaviors
 {
-    public partial class BoardPieceHealth : Node
+    public partial class BoardPieceHealth : BoardPieceBehavior
     {
         private float _maxHealth;
 
@@ -53,16 +53,11 @@ namespace Shadowfront.Backend.Board.BoardPieces.Behaviors
         /// </summary>
         public bool CurrentHealthIsAtMaxHealth => Mathf.IsEqualApprox(_currentHealth, MaxHealth);
 
-        public BoardPiece BoardPiece { get; private set; } = null!;
-
         public override void _Ready()
         {
             base._Ready();
 
             _currentHealth = _maxHealth;
-
-            BoardPiece = GetParent<BoardPiece>()
-                ?? throw new Exception($"Parent not found or isn't of type {nameof(BoardPiece)}");
         }
 
         /// <summary>
@@ -85,7 +80,7 @@ namespace Shadowfront.Backend.Board.BoardPieces.Behaviors
 
             _currentHealth = clampedHealth;
 
-            EventBus.Emit(new BoardPiece_HealthChangedEvent(BoardPiece, previousHealth, _currentHealth));
+            EventBus.Emit(new BoardPiece_HealthChangedEvent(_boardPiece, previousHealth, _currentHealth));
 
             CheckIfHealthAtBounds(previousHealth);
         }
@@ -138,7 +133,7 @@ namespace Shadowfront.Backend.Board.BoardPieces.Behaviors
 
             _maxHealth = newValue;
 
-            EventBus.Emit(new BoardPiece_MaxHealthChangedEvent(BoardPiece, previousMaxHealth, _maxHealth));
+            EventBus.Emit(new BoardPiece_MaxHealthChangedEvent(_boardPiece, previousMaxHealth, _maxHealth));
 
             // If the ceiling's been lowered below our current health...
             if (_maxHealth < _currentHealth)
@@ -194,7 +189,7 @@ namespace Shadowfront.Backend.Board.BoardPieces.Behaviors
 
             _minHealth = newValue;
 
-            EventBus.Emit(new BoardPiece_MinHealthChangedEvent(BoardPiece, previousMinHealth, _minHealth));
+            EventBus.Emit(new BoardPiece_MinHealthChangedEvent(_boardPiece, previousMinHealth, _minHealth));
 
             // If the floor's been raised above our current health...
             if (_minHealth > _currentHealth)
@@ -237,10 +232,10 @@ namespace Shadowfront.Backend.Board.BoardPieces.Behaviors
         private void CheckIfHealthAtBounds(float previousHealth)
         {
             if (CurrentHealthIsAtMinHealth)
-                EventBus.Emit(new BoardPiece_HealthAtMinEvent(BoardPiece, previousHealth, _currentHealth));
+                EventBus.Emit(new BoardPiece_HealthAtMinEvent(_boardPiece, previousHealth, _currentHealth));
 
             if (CurrentHealthIsAtMaxHealth)
-                EventBus.Emit(new BoardPiece_HealthAtMaxEvent(BoardPiece, previousHealth, _currentHealth));
+                EventBus.Emit(new BoardPiece_HealthAtMaxEvent(_boardPiece, previousHealth, _currentHealth));
         }
     }
 

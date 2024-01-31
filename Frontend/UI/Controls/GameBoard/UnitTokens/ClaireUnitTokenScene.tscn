@@ -1,10 +1,11 @@
-[gd_scene load_steps=14 format=3 uid="uid://dl2q4fx151t3"]
+[gd_scene load_steps=15 format=3 uid="uid://dl2q4fx151t3"]
 
 [ext_resource type="Script" path="res://Data/Units/ClairUnit.cs" id="1_7medt"]
 [ext_resource type="Texture2D" uid="uid://8nnhcvefey5g" path="res://Assets/Sprites/Characters/Claire/Idle.png" id="1_ulk5d"]
 [ext_resource type="PackedScene" uid="uid://cevp4lydu6k1x" path="res://Frontend/Nodes/GameBoard/BoardPieceHealth.tscn" id="3_gowlq"]
 [ext_resource type="PackedScene" uid="uid://d0fkl6tjit0r6" path="res://Frontend/Nodes/GameBoard/BoardPieceMovement.tscn" id="4_5ot01"]
 [ext_resource type="PackedScene" uid="uid://cfi7rwcjnqfbp" path="res://Frontend/Nodes/GameBoard/BoardPieceGunAbility.tscn" id="5_bq403"]
+[ext_resource type="PackedScene" uid="uid://bejjiatbdm58c" path="res://Frontend/Nodes/ObjectAttributes.tscn" id="6_33rhb"]
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_fsehi"]
 atlas = ExtResource("1_ulk5d")
@@ -83,3 +84,5 @@ offset_bottom = 23.0
 [node name="BoardPieceGunAbility" parent="." instance=ExtResource("5_bq403")]
 MinRange = 2
 MaxRange = 3
+
+[node name="ObjectAttributes" parent="." instance=ExtResource("6_33rhb")]

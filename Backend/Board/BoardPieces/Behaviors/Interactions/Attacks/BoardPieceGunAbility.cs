@@ -21,12 +21,20 @@ namespace Shadowfront.Backend.Board.BoardPieces.Behaviors.Interactions.Attacks
 
         public override void Effect(BoardPiece target)
         {
-            var targetHealth = target.BoardPieceHealth;
+            var targetHealth = target.ObjectAttributes?[DefaultObjectAttributes.Keys.HEALTH];
 
             if (targetHealth is null)
                 return;
 
-            targetHealth.AddCurrentHealth(-5f);
+            targetHealth.Value.Current -= 5f;
+
+
+            //var targetHealth = target.BoardPieceHealth;
+
+            //if (targetHealth is null)
+            //    return;
+
+            //targetHealth.AddCurrentHealth(-5f);
         }
     }
 }

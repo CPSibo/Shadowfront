@@ -10,6 +10,8 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
+using static Shadowfront.Backend.Board.BoardPieces.ObjectAttribute;
+using static Shadowfront.Backend.ClampedValue;
 
 namespace Shadowfront.Backend.Board
 {
@@ -24,7 +26,7 @@ namespace Shadowfront.Backend.Board
 
         public Dictionary<Vector2I, GameBoardCell> Cells { get; private set; } = [];
 
-        private readonly List<BoardPiece> _boardPieces = [];
+        public List<BoardPiece> BoardPieces { get; } = [];
 
         private readonly Dictionary<BoardPiece, GameBoardCell> _boardPieceCells = [];
 
@@ -48,6 +50,8 @@ namespace Shadowfront.Backend.Board
 
         private const string HOVER_KEY = "hover";
 
+        public AStar2D NavGraph { get; private set; } = new();
+
         public GameBoard()
         {
             Instance = this;
@@ -70,9 +74,29 @@ namespace Shadowfront.Backend.Board
 
             EventBus.Subscribe<GameBoard_BoardPieceCreationRequestedEvent>(BoardPieceCreationRequested);
 
+            EventBus.Subscribe<ObjectAttribute_CurrentAtMinEvent>(ObjectAttribute_CurrentAtMin);
+
             InitializeData();
 
             LateReadyAsync();
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            EventBus.Unsubscribe<BoardPieceActionBar_InteractionButtonClickedEvent>(BoardPieceActionBar_InteractionButtonClicked);
+
+            EventBus.Unsubscribe<BoardPiece_DisposingEvent>(BoardPiece_Disposing);
+            EventBus.Unsubscribe<BoardPiece_HealthAtMinEvent>(BoardPiece_HealthAtMin);
+
+            EventBus.Unsubscribe<BoardPieceMovement_PositionChangedEvent>(BoardPieceMovement_PositionChanged);
+
+            EventBus.Unsubscribe<GameBoard_BoardPieceCreationRequestedEvent>(BoardPieceCreationRequested);
+
+            EventBus.Unsubscribe<ObjectAttribute_CurrentAtMinEvent>(ObjectAttribute_CurrentAtMin);
+
+            EventBus.Emit(new GameBoard_DisposingEvent(this));
+
+            base.Dispose(disposing);
         }
 
         public async void LateReadyAsync()
@@ -88,22 +112,6 @@ namespace Shadowfront.Backend.Board
             CreateBoardPiece(Cells[new(20, 1)], boardPieceScenePath, faction);
 
             CreateBoardPiece(Cells[new(1, 0)], boardPieceScenePath, "enemy");
-        }
-
-        protected override void Dispose(bool disposing)
-        {
-            EventBus.Unsubscribe<BoardPieceActionBar_InteractionButtonClickedEvent>(BoardPieceActionBar_InteractionButtonClicked);
-
-            EventBus.Unsubscribe<BoardPiece_DisposingEvent>(BoardPiece_Disposing);
-            EventBus.Unsubscribe<BoardPiece_HealthAtMinEvent>(BoardPiece_HealthAtMin);
-
-            EventBus.Unsubscribe<BoardPieceMovement_PositionChangedEvent>(BoardPieceMovement_PositionChanged);
-
-            EventBus.Unsubscribe<GameBoard_BoardPieceCreationRequestedEvent>(BoardPieceCreationRequested);
-
-            EventBus.Emit(new GameBoard_DisposingEvent(this));
-
-            base.Dispose(disposing);
         }
 
         public override void _Process(double delta)
@@ -188,47 +196,52 @@ namespace Shadowfront.Backend.Board
                 AddChild(positionLabel);
             }
 
-            EventBus.Emit(new GameBoard_GroundCellsChanged(Cells.Values));
+            EventBus.Emit(new GameBoard_GroundCellsChangedEvent(Cells.Values));
 
-            //var navGraph = GenerateNavigationGraph();
-
-            //var startNode = Cells[new(1, 3)];
-            //var endNode = Cells[new(-2, 1)];
-
-            //var path = navGraph.GetPointPath(startNode.Id, endNode.Id);
-
-            //if (path is null || path.Length == 0)
-            //    Debugger.Log(0, "INFO", "No path found\n");
-            //else
-            //{
-            //    Debugger.Log(0, "INFO", $"{string.Join(" -> ", path)}\n");
-            //}
+            GenerateNavigationGraph();
         }
 
         private AStar2D GenerateNavigationGraph()
         {
-            var aStar = new AStar2D();
-            aStar.ReserveSpace(Cells.Count);
+            var currentPointCount = NavGraph.GetPointCount();
+
+            NavGraph.Clear();
+
+            if (Cells.Count > currentPointCount)
+                NavGraph.ReserveSpace(Cells.Count);
 
             foreach (var cell in Cells)
             {
-                aStar.AddPoint(cell.Value.Id, cell.Key);
+                NavGraph.AddPoint(cell.Value.Id, cell.Key);
             }
 
             foreach (var (position, node) in Cells)
             {
-                var hypotheticalNeighbors = HexTileMapUtils.GetHypotheticalCellsWithinRange(position, 0, 1);
+                var myBoardPiece = node.BoardPiece;
+
+                var hypotheticalNeighbors = HexTileMapUtils.GetHypotheticalCellsWithinRange(position, 1, 1);
 
                 foreach (var hypotheticalNeighbor in hypotheticalNeighbors)
                 {
-                    if (!Cells.TryGetValue(hypotheticalNeighbor, out var realCell))
+                    if (!Cells.TryGetValue(hypotheticalNeighbor, out var realNeighbor))
                         continue;
 
-                    aStar.ConnectPoints(node.Id, realCell.Id);
+                    var neighborBoardPiece = realNeighbor.BoardPiece;
+
+                    if(myBoardPiece is null && neighborBoardPiece is null)
+                        NavGraph.ConnectPoints(node.Id, realNeighbor.Id, bidirectional: true);
+
+                    else if(myBoardPiece is null && neighborBoardPiece is not null)
+                        NavGraph.ConnectPoints(realNeighbor.Id, node.Id, bidirectional: false);
+
+                    else if (myBoardPiece is not null && neighborBoardPiece is null)
+                        NavGraph.ConnectPoints(node.Id, realNeighbor.Id, bidirectional: false);
                 }
             }
 
-            return aStar;
+            EventBus.Emit(new GameBoard_NavGraphChangedEvent(NavGraph));
+
+            return NavGraph;
         }
 
         public void HandleCellPrimaryTouched(Vector2I cellCoordinates)
@@ -369,15 +382,17 @@ namespace Shadowfront.Backend.Board
             if (Cells.TryGetValue(e.PreviousPosition, out var from))
                 from.RemoveBoardPiece();
 
-            if (Cells.TryGetValue(e.NewPosition, out var to))
-            {
-                // Set the visible node position on screen.
-                e.BoardPiece.Position = this.GetLocalFromCell(to.BoardPosition);
+            if (!Cells.TryGetValue(e.NewPosition, out var to))
+                return;
 
-                to.SetBoardPiece(e.BoardPiece);
+            // Set the visible node position on screen.
+            e.BoardPiece.Position = this.GetLocalFromCell(to.BoardPosition);
 
-                _boardPieceCells[e.BoardPiece] = to;
-            }
+            to.SetBoardPiece(e.BoardPiece);
+
+            _boardPieceCells[e.BoardPiece] = to;
+
+            GenerateNavigationGraph();
         }
 
         public BoardPiece? CreateBoardPiece(GameBoardCell cell, string boardPieceScenePath, string faction)
@@ -398,12 +413,33 @@ namespace Shadowfront.Backend.Board
                 boardPiece.Ready -= BoardPieceReady;
 
                 boardPiece.BoardPieceMovement?.ForcePosition(cell.BoardPosition);
+
+                var attributes = boardPiece.GetChildByType<ObjectAttributes>();
+
+                if (attributes is not null)
+                {
+                    attributes.OwnerId = boardPiece.Id;
+
+                    var health = DefaultObjectAttributes.Health;
+                    health.Value.Max = 10;
+                    health.Value.Min = 0;
+                    health.Value.Current = 10;
+                    health.Value.EnableEvents = true;
+
+                    var evasion = DefaultObjectAttributes.Evasion;
+                    evasion.Value.Max = float.MaxValue;
+                    evasion.Value.Min = float.MinValue;
+                    evasion.Value.Current = 0;
+
+                    attributes[DefaultObjectAttributes.Keys.HEALTH] = health;
+                    attributes[DefaultObjectAttributes.Keys.EVASION] = evasion;
+                }
             }
 
             boardPiece.Ready += BoardPieceReady;
 
             cell.SetBoardPiece(boardPiece);
-            _boardPieces.Add(boardPiece);
+            BoardPieces.Add(boardPiece);
             _boardPieceCells.Add(boardPiece, cell);
 
             EventBus.Emit(new GameBoard_BoardPiecePlacedEvent(boardPiece, cell.BoardPosition));
@@ -438,15 +474,27 @@ namespace Shadowfront.Backend.Board
 
         private void BoardPiece_HealthAtMin(BoardPiece_HealthAtMinEvent e)
         {
-            e.BoardPiece.Dispose();
+            //e.BoardPiece.Dispose();
+        }
+
+        private void ObjectAttribute_CurrentAtMin(ObjectAttribute_CurrentAtMinEvent e)
+        {
+            var boardPiece = BoardPieces.FirstOrDefault(f => f.Id == e.OwnerId);
+
+            if (boardPiece is null)
+                return;
+
+            boardPiece.Dispose();
         }
 
         private void BoardPiece_Disposing(BoardPiece_DisposingEvent e)
         {
             // Remove from the master list.
-            _boardPieces.Remove(e.BoardPiece);
+            BoardPieces.Remove(e.BoardPiece);
 
             e.BoardPiece.QueueFree();
+
+            GenerateNavigationGraph();
         }
 
         public void BoardPieceActionBar_InteractionButtonClicked(BoardPieceActionBar_InteractionButtonClickedEvent e)
@@ -484,5 +532,7 @@ namespace Shadowfront.Backend.Board
 
     public readonly record struct GameBoard_BoardPiecePlacedEvent(BoardPiece BoardPiece, Vector2I Position) : IEventType;
 
-    public readonly record struct GameBoard_GroundCellsChanged(IEnumerable<GameBoardCell> Cells) : IEventType;
+    public readonly record struct GameBoard_GroundCellsChangedEvent(IEnumerable<GameBoardCell> Cells) : IEventType;
+
+    public readonly record struct GameBoard_NavGraphChangedEvent(AStar2D NavGraph) : IEventType;
 }

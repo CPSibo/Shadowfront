@@ -1,6 +1,9 @@
 using Godot;
 using Shadowfront.Backend;
+using Shadowfront.Backend.Board;
 using Shadowfront.Backend.Board.BoardPieces.Behaviors;
+using System.Linq;
+using static Shadowfront.Backend.Board.BoardPieces.ObjectAttribute;
 
 public partial class GameBoardScreen : Node2D
 {
@@ -8,20 +11,26 @@ public partial class GameBoardScreen : Node2D
     {
         base._Ready();
 
-        EventBus.Subscribe<BoardPiece_HealthChangedEvent>(BoardPiece_HealthChanged);
+        EventBus.Subscribe<ObjectAttribute_CurrentChangedEvent>(ObjectAttribute_CurrentChanged);
     }
 
     ~GameBoardScreen()
     {
-        EventBus.Unsubscribe<BoardPiece_HealthChangedEvent>(BoardPiece_HealthChanged);
+        EventBus.Unsubscribe<ObjectAttribute_CurrentChangedEvent>(ObjectAttribute_CurrentChanged);
     }
 
-    private void BoardPiece_HealthChanged(BoardPiece_HealthChangedEvent e)
+    private void ObjectAttribute_CurrentChanged(ObjectAttribute_CurrentChangedEvent e)
     {
-        var sourcePosition = e.BoardPiece.Position;
+        var sourceBoardPiece = GameBoard.Instance.BoardPieces
+            .FirstOrDefault(f => f.Id == e.OwnerId);
 
-        AddDamageLabel(sourcePosition, e.NewHealth - e.PreviousHealth);
-        AddBoardPieceDialog(sourcePosition, e.NewHealth > 0 ? "Taking fire!" : "I'm hit!");
+        if (sourceBoardPiece is null)
+            return;
+
+        var sourcePosition = sourceBoardPiece.Position;
+
+        AddDamageLabel(sourcePosition, e.NewValue - e.PreviousValue);
+        AddBoardPieceDialog(sourcePosition, e.NewValue > 0 ? "Taking fire!" : "I'm hit!");
     }
 
     private Label AddDamageLabel(Vector2 position, float damageAmount)
@@ -33,7 +42,7 @@ public partial class GameBoardScreen : Node2D
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
             Text = $"{damageAmount:n0}",
-            Position = position + new Vector2(-30, -30),
+            Position = position + new Vector2(-60, -30),
         };
         label.AddThemeColorOverride("font_color", Colors.Red);
         label.AddThemeFontSizeOverride("font_size", 30);
