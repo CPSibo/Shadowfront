@@ -2,6 +2,7 @@ using Godot;
 using Shadowfront.Backend.Utilities;
 using System.Collections.Generic;
 using System.Linq;
+using static Shadowfront.Backend.Utilities.HexTileMapUtils;
 
 namespace Shadowfront.Backend.Board.BoardPieces.Behaviors.Interactions.Movement
 {
@@ -38,27 +39,43 @@ namespace Shadowfront.Backend.Board.BoardPieces.Behaviors.Interactions.Movement
 
         private HashSet<Vector2I> _cellsInrange = [];
 
+        private HashSet<Vector2I> _validCellsInRange = [];
+
         public HashSet<Vector2I> CellsInRange => _cellsInrange;
+
+        public HashSet<Vector2I> ValidCellsInRange => _validCellsInRange;
 
         public void SetAvailableCells(IEnumerable<Vector2I> availableCells)
         {
             _availableCells = [.. availableCells];
 
-            _cellsInrange = ComputeCellsInRange();
+            (_validCellsInRange, _cellsInrange) = ComputeCellsInRange();
         }
 
         /// <summary>
         /// Compute the valid movement targets for the piece.
         /// </summary>
-        private HashSet<Vector2I> ComputeCellsInRange()
+        private (HashSet<Vector2I>, HashSet<Vector2I>) ComputeCellsInRange()
         {
             if (MaxRange <= 0)
-                return [];
+                return ([], []);
 
-            return HexTileMapUtils
-                .GetActualCellsWithinRange(_availableCells, Position, MinRange, MaxRange)
-                .Where(f => f != Position)
-                .ToHashSet();
+            var args = new CellSearchArguments()
+            {
+                MaxRange = MaxRange,
+                MinRange = MinRange,
+                Origin = Position,
+                GameBoard = GameBoard.Instance,
+                Rules = CellSearchRules.ExcludeOtherTiles
+                      | CellSearchRules.ExcludeOwnTile
+                      | CellSearchRules.ExcludeOwnTeamTiles
+                      | CellSearchRules.ExcludeOtherTeamTiles
+                      | CellSearchRules.RequiresTraversablePath
+            };
+
+            var (valid, all) = GetValidCellsWithinRange(args);
+
+            return (valid.ToHashSet(), all.ToHashSet());
         }
 
         /// <summary>
@@ -79,7 +96,7 @@ namespace Shadowfront.Backend.Board.BoardPieces.Behaviors.Interactions.Movement
             if (position == _position)
                 return false;
 
-            if (!_cellsInrange.Contains(position))
+            if (!_validCellsInRange.Contains(position))
                 return false;
 
             return true;
@@ -94,7 +111,7 @@ namespace Shadowfront.Backend.Board.BoardPieces.Behaviors.Interactions.Movement
 
             _position = desiredPosition;
 
-            _cellsInrange = ComputeCellsInRange();
+            (_validCellsInRange, _cellsInrange) = ComputeCellsInRange();
 
             EventBus.Emit(new BoardPieceMovement_PositionChangedEvent(_boardPiece, previousPosition, _position));
         }
@@ -121,7 +138,7 @@ namespace Shadowfront.Backend.Board.BoardPieces.Behaviors.Interactions.Movement
 
             _position = desiredPosition;
 
-            _cellsInrange = ComputeCellsInRange();
+            (_validCellsInRange, _cellsInrange) = ComputeCellsInRange();
 
             EventBus.Emit(new BoardPieceMovement_PositionChangedEvent(_boardPiece, previousPosition, _position));
 

@@ -9,15 +9,17 @@ namespace Shadowfront.Backend.Utilities
     public static class HexTileMapUtils
     {
         [Flags]
-        public enum PathfindingRules
+        public enum CellSearchRules
         {
             None = 0,
-            RequiresTraversablePath = 1,
-            IncludeOwnTile = 2,
-            IncludeGroundTiles = 4,
-            IncludeOtherTiles = 8,
-            IncludeOwnTeamTiles = 16,
-            IncludeOtherTeamTiles = 32,
+            IncludeAll = 1,
+            RequiresTraversablePath = 2,
+            ExcludeOwnTile = 4,
+            ExcludeGroundTiles = 8,
+            ExcludeOtherTiles = 16,
+            ExcludeOwnTeamTiles = 32,
+            ExcludeOtherTeamTiles = 64,
+            ExcludeEmptyTiles = 128,
         }
 
         /// <summary>
@@ -145,22 +147,89 @@ namespace Shadowfront.Backend.Utilities
             }
         }
 
-        /// <summary>
-        /// Returns the positions of all neighbors that actually exist withing the range.
-        /// </summary>
-        public static IEnumerable<Vector2I> GetActualCellsWithinRange(IEnumerable<Vector2I> availableCells, Vector2I originCell, int minRange, int maxRange)
+        ///// <summary>
+        ///// Returns the positions of all neighbors that actually exist withing the range.
+        ///// </summary>
+        //public static IEnumerable<Vector2I> GetActualCellsWithinRange(IEnumerable<Vector2I> availableCells, Vector2I originCell, int minRange, int maxRange)
+        //{
+        //    var hypotheticalCells = GetHypotheticalCellsWithinRange(originCell, minRange, maxRange);
+
+        //    return hypotheticalCells.Intersect(availableCells);
+        //}
+
+        public readonly record struct CellSearchArguments(
+            Vector2I Origin,
+            int MaxRange,
+            int MinRange,
+            GameBoard GameBoard,
+            CellSearchRules Rules = CellSearchRules.IncludeAll
+        );
+
+        public readonly record struct CellSearchResults(
+            IEnumerable<Vector2I> ValidCells,
+            IEnumerable<Vector2I> InvalidCells
+        );
+
+        public static CellSearchResults GetValidCellsWithinRange(CellSearchArguments args)
         {
-            var hypotheticalCells = GetHypotheticalCellsWithinRange(originCell, minRange, maxRange);
+            if (args.Rules == CellSearchRules.None)
+                return new(Enumerable.Empty<Vector2I>(), Enumerable.Empty<Vector2I>());
 
-            var lookup = availableCells.ToHashSet();
+            var hypotheticalCells = GetHypotheticalCellsWithinRange(args.Origin, args.MinRange, args.MaxRange);
+            var validCells = hypotheticalCells;
 
-            foreach(var cell in hypotheticalCells)
+            if(args.Rules.HasFlag(CellSearchRules.IncludeAll))
+                return new(validCells, Enumerable.Empty<Vector2I>());
+
+            if (args.Rules.HasFlag(CellSearchRules.ExcludeOwnTile))
+                validCells = validCells.Where(f => f != args.Origin);
+
+            var groundTiles = args.GameBoard.Cells;
+
+            if (!groundTiles.TryGetValue(args.Origin, out var originGameCell))
+                throw new Exception($"Origin not present in game board: {args.Origin}");
+
+            var originBoardPiece = originGameCell.BoardPiece;
+
+            if (args.Rules.HasFlag(CellSearchRules.ExcludeGroundTiles))
+                validCells = validCells.Except(groundTiles.Keys);
+
+            if (args.Rules.HasFlag(CellSearchRules.ExcludeOtherTiles))
+                validCells = validCells.Intersect(groundTiles.Keys);
+
+            if (args.Rules.HasFlag(CellSearchRules.ExcludeEmptyTiles))
             {
-                if (!lookup.Contains(cell))
-                    continue;
+                var cellsWithAPiece = groundTiles.Values
+                    .Where(f => f.BoardPiece is not null)
+                    .Select(f => f.BoardPosition);
 
-                yield return cell;
+                validCells = validCells.Intersect(cellsWithAPiece);
             }
+
+            if (args.Rules.HasFlag(CellSearchRules.ExcludeOwnTeamTiles) && originBoardPiece is not null)
+            {
+                var cellsWithOwnTeamPieces = groundTiles.Values
+                    .Where(f => f.BoardPiece is not null && f.BoardPiece.Faction == originBoardPiece.Faction)
+                    .Select(f => f.BoardPosition);
+
+                validCells = validCells.Except(cellsWithOwnTeamPieces);
+            }
+
+            if (args.Rules.HasFlag(CellSearchRules.ExcludeOtherTeamTiles) && originBoardPiece is not null)
+            {
+                var cellsWithOtherTeamPieces = groundTiles.Values
+                    .Where(f => f.BoardPiece is not null && f.BoardPiece.Faction != originBoardPiece.Faction)
+                    .Select(f => f.BoardPosition);
+
+                validCells = validCells.Except(cellsWithOtherTeamPieces);
+            }
+
+            if(args.Rules.HasFlag(CellSearchRules.RequiresTraversablePath) && originBoardPiece is not null)
+            {
+                // TODO: Pathfinding
+            }
+
+            return new(validCells, hypotheticalCells.Except(validCells));
         }
     }
 }

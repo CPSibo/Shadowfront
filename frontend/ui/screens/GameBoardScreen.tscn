@@ -18,7 +18,7 @@ script = ExtResource("1_oqvri")
 CellOutliner = NodePath("../CellOutliner")
 
 [node name="CellOutliner" type="Node2D" parent="."]
-z_index = 5
+z_as_relative = false
 script = ExtResource("3_n60eu")
 TileSideLength = 51.0
 

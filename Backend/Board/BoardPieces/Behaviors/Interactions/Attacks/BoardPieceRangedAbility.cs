@@ -4,6 +4,7 @@ using Shadowfront.Backend.Utilities;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using static Shadowfront.Backend.Utilities.HexTileMapUtils;
 
 namespace Shadowfront.Backend.Board.BoardPieces.Behaviors.Interactions.Attacks
 {
@@ -29,7 +30,13 @@ namespace Shadowfront.Backend.Board.BoardPieces.Behaviors.Interactions.Attacks
 
         private HashSet<Vector2I> _cellsInrange = [];
 
+        private HashSet<Vector2I> _validCellsInRange = [];
+
         public HashSet<Vector2I> CellsInRange => _cellsInrange;
+
+        public HashSet<Vector2I> ValidCellsInRange => _validCellsInRange;
+
+        public abstract CellSearchRules CellSearchRules { get; }
 
         public override void _Ready()
         {
@@ -53,30 +60,39 @@ namespace Shadowfront.Backend.Board.BoardPieces.Behaviors.Interactions.Attacks
             if (e.BoardPiece != _parent)
                 return;
 
-            _cellsInrange = ComputeCellsInRange();
+            (_validCellsInRange, _cellsInrange) = ComputeCellsInRange();
         }
 
         public void SetAvailableCells(IEnumerable<Vector2I> availableCells)
         {
             _availableCells = [.. availableCells];
 
-            _cellsInrange = ComputeCellsInRange();
+            (_validCellsInRange, _cellsInrange) = ComputeCellsInRange();
         }
 
         /// <summary>
         /// Compute the valid movement targets for the piece.
         /// </summary>
-        private HashSet<Vector2I> ComputeCellsInRange()
+        private (HashSet<Vector2I>, HashSet<Vector2I>) ComputeCellsInRange()
         {
             if (MaxRange <= 0)
-                return [];
+                return ([], []);
 
             if (_parent.BoardPieceMovement is null)
-                return [];
+                return ([], []);
 
-            return HexTileMapUtils
-                .GetHypotheticalCellsWithinRange(_parent.BoardPieceMovement.Position, MinRange, MaxRange)
-                .ToHashSet();
+            var args = new CellSearchArguments()
+            {
+                MaxRange = MaxRange,
+                MinRange = MinRange,
+                Origin = _parent.BoardPieceMovement.Position,
+                GameBoard = GameBoard.Instance,
+                Rules = CellSearchRules
+            };
+
+            var (valid, all) = GetValidCellsWithinRange(args);
+
+            return (valid.ToHashSet(), all.ToHashSet());
         }
 
         public abstract void Effect(BoardPiece target);
@@ -97,7 +113,7 @@ namespace Shadowfront.Backend.Board.BoardPieces.Behaviors.Interactions.Attacks
 
             var targetPositon = target.BoardPieceMovement.Position;
 
-            if (!CellsInRange.Contains(targetPositon))
+            if (!_validCellsInRange.Contains(targetPositon))
                 return false;
 
             return true;

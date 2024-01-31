@@ -15,6 +15,8 @@ namespace Shadowfront.Backend.Board
 {
     public partial class GameBoard : TileMap, IDisposableNode
     {
+        public static GameBoard Instance { get; private set; } = null!;
+
         [Export]
         public CellOutliner? CellOutliner { get; set; }
 
@@ -45,6 +47,11 @@ namespace Shadowfront.Backend.Board
         private const string ACTIVE_KEY = "active";
 
         private const string HOVER_KEY = "hover";
+
+        public GameBoard()
+        {
+            Instance = this;
+        }
 
         public override void _Ready()
         {
@@ -460,11 +467,18 @@ namespace Shadowfront.Backend.Board
 
             _activeInteraction = e.Interaction;
 
-            if(_activeInteraction is IHasRange rangedInteraction)
+            if (_activeInteraction is IHasRange rangedInteraction)
+            {
+                CellOutliner?.AddCellStyle(
+                    rangedInteraction.GetType().Name,
+                    rangedInteraction.ValidCellsInRange.Select(MapToLocal),
+                    rangedInteraction.RangeColor);
+
                 CellOutliner?.AddCellStyle(
                     rangedInteraction.GetType().Name,
                     rangedInteraction.CellsInRange.Select(MapToLocal),
-                    rangedInteraction.RangeColor);
+                    new(0x00000060));
+            }
         }
     }
 

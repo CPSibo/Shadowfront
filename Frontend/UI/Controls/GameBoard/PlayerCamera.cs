@@ -77,6 +77,8 @@ public partial class PlayerCamera : Camera2D
         Rotate(desiredRotationAmount);
     }
 
+    // TODO: Set predefined zoom levels to snap to, rather than
+    //       letting the camera get stuck in off-pixel sizes.
     private void HandleZoom(InputEvent @event)
     {
         if (@event is not InputEventMouseButton mouseEvent)

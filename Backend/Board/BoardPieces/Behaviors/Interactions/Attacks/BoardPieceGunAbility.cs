@@ -1,10 +1,16 @@
 using Godot;
+using static Shadowfront.Backend.Utilities.HexTileMapUtils;
 
 namespace Shadowfront.Backend.Board.BoardPieces.Behaviors.Interactions.Attacks
 {
     public partial class BoardPieceGunAbility : BoardPieceRangedAbility
     {
         public override Color RangeColor { get; } = new(0xef555555);
+
+        public override CellSearchRules CellSearchRules =>
+              CellSearchRules.ExcludeOwnTeamTiles
+            | CellSearchRules.ExcludeOwnTile
+            | CellSearchRules.ExcludeEmptyTiles;
 
         public BoardPieceGunAbility()
         {

@@ -13,6 +13,8 @@ namespace Shadowfront.Backend.Board.BoardPieces.Behaviors.Interactions
 
         HashSet<Vector2I> CellsInRange { get; }
 
+        HashSet<Vector2I> ValidCellsInRange { get; }
+
         void SetAvailableCells(IEnumerable<Vector2I> availableCells);
     }
 }
