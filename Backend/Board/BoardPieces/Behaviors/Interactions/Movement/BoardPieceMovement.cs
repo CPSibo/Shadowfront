@@ -45,9 +45,31 @@ namespace Shadowfront.Backend.Board.BoardPieces.Behaviors.Interactions.Movement
 
         public HashSet<Vector2I> ValidCellsInRange => _validCellsInRange;
 
-        public void SetAvailableCells(IEnumerable<Vector2I> availableCells)
+        public override void _Ready()
         {
-            _availableCells = [.. availableCells];
+            base._Ready();
+
+            EventBus.Subscribe<BoardPieceMovement_PositionChangedEvent>(BoardPieceMovement_PositionChanged);
+            EventBus.Subscribe<GameBoard_BoardPiecePlacedEvent>(GameBoard_BoardPiecePlaced);
+        }
+
+        public override void _ExitTree()
+        {
+            EventBus.Unsubscribe<BoardPieceMovement_PositionChangedEvent>(BoardPieceMovement_PositionChanged);
+            EventBus.Unsubscribe<GameBoard_BoardPiecePlacedEvent>(GameBoard_BoardPiecePlaced);
+
+            base._ExitTree();
+        }
+
+        private void BoardPieceMovement_PositionChanged(BoardPieceMovement_PositionChangedEvent e)
+        {
+            (_validCellsInRange, _cellsInrange) = ComputeCellsInRange();
+        }
+
+        private void GameBoard_BoardPiecePlaced(GameBoard_BoardPiecePlacedEvent e)
+        {
+            if (e.BoardPiece == _boardPiece)
+                return;
 
             (_validCellsInRange, _cellsInrange) = ComputeCellsInRange();
         }
@@ -111,8 +133,6 @@ namespace Shadowfront.Backend.Board.BoardPieces.Behaviors.Interactions.Movement
 
             _position = desiredPosition;
 
-            (_validCellsInRange, _cellsInrange) = ComputeCellsInRange();
-
             EventBus.Emit(new BoardPieceMovement_PositionChangedEvent(_boardPiece, previousPosition, _position));
         }
 
@@ -137,8 +157,6 @@ namespace Shadowfront.Backend.Board.BoardPieces.Behaviors.Interactions.Movement
             var previousPosition = _position;
 
             _position = desiredPosition;
-
-            (_validCellsInRange, _cellsInrange) = ComputeCellsInRange();
 
             EventBus.Emit(new BoardPieceMovement_PositionChangedEvent(_boardPiece, previousPosition, _position));
 

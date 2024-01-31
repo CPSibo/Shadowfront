@@ -24,10 +24,6 @@ namespace Shadowfront.Backend.Board.BoardPieces.Behaviors.Interactions.Attacks
         [Export]
         public bool CanTargetOwnTeam { get; set; }
 
-        private BoardPiece _parent { get; set; } = null!;
-
-        private HashSet<Vector2I> _availableCells = [];
-
         private HashSet<Vector2I> _cellsInrange = [];
 
         private HashSet<Vector2I> _validCellsInRange = [];
@@ -42,31 +38,25 @@ namespace Shadowfront.Backend.Board.BoardPieces.Behaviors.Interactions.Attacks
         {
             base._Ready();
 
-            _parent = GetParent<BoardPiece>()
-                ?? throw new Exception($"Cannot find parent of type {nameof(BoardPiece)}");
-
             EventBus.Subscribe<BoardPieceMovement_PositionChangedEvent>(BoardPieceMovement_PositionChanged);
+            EventBus.Subscribe<GameBoard_BoardPiecePlacedEvent>(GameBoard_BoardPiecePlaced);
         }
 
         public override void _ExitTree()
         {
             EventBus.Unsubscribe<BoardPieceMovement_PositionChangedEvent>(BoardPieceMovement_PositionChanged);
+            EventBus.Unsubscribe<GameBoard_BoardPiecePlacedEvent>(GameBoard_BoardPiecePlaced);
 
             base._ExitTree();
         }
 
         private void BoardPieceMovement_PositionChanged(BoardPieceMovement_PositionChangedEvent e)
         {
-            if (e.BoardPiece != _parent)
-                return;
-
             (_validCellsInRange, _cellsInrange) = ComputeCellsInRange();
         }
 
-        public void SetAvailableCells(IEnumerable<Vector2I> availableCells)
+        private void GameBoard_BoardPiecePlaced(GameBoard_BoardPiecePlacedEvent e)
         {
-            _availableCells = [.. availableCells];
-
             (_validCellsInRange, _cellsInrange) = ComputeCellsInRange();
         }
 
@@ -78,14 +68,14 @@ namespace Shadowfront.Backend.Board.BoardPieces.Behaviors.Interactions.Attacks
             if (MaxRange <= 0)
                 return ([], []);
 
-            if (_parent.BoardPieceMovement is null)
+            if (_boardPiece.BoardPieceMovement is null)
                 return ([], []);
 
             var args = new CellSearchArguments()
             {
                 MaxRange = MaxRange,
                 MinRange = MinRange,
-                Origin = _parent.BoardPieceMovement.Position,
+                Origin = _boardPiece.BoardPieceMovement.Position,
                 GameBoard = GameBoard.Instance,
                 Rules = CellSearchRules
             };
@@ -105,7 +95,7 @@ namespace Shadowfront.Backend.Board.BoardPieces.Behaviors.Interactions.Attacks
             if(MaxRange <= 0)
                 return false;
 
-            if(_parent.Faction == target.Faction && !CanTargetOwnTeam)
+            if(_boardPiece.Faction == target.Faction && !CanTargetOwnTeam)
                 return false;
 
             if (target.BoardPieceMovement is null)
@@ -129,7 +119,7 @@ namespace Shadowfront.Backend.Board.BoardPieces.Behaviors.Interactions.Attacks
             if (!CanAttack(target))
                 return false;
 
-            EventBus.Emit(new BoardPieceRangedAbility_AttackEvent(_parent, target, Effect));
+            EventBus.Emit(new BoardPieceRangedAbility_AttackEvent(_boardPiece, target, Effect));
 
             Effect(target);
 

@@ -398,14 +398,6 @@ namespace Shadowfront.Backend.Board
                 boardPiece.Ready -= BoardPieceReady;
 
                 boardPiece.BoardPieceMovement?.ForcePosition(cell.BoardPosition);
-
-                foreach(var interaction in boardPiece.Interactions)
-                {
-                    if(interaction is IHasRange rangedInteraction)
-                    {
-                        rangedInteraction.SetAvailableCells(GetUsedCells(GROUND_LAYER_INDEX));
-                    }
-                }
             }
 
             boardPiece.Ready += BoardPieceReady;
