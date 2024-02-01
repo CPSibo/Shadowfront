@@ -11,11 +11,13 @@
 
         public static ObjectAttribute Health => new()
         {
+            Key = Keys.HEALTH,
             Name = "Health",
         };
 
         public static ObjectAttribute Evasion => new()
         {
+            Key = Keys.EVASION,
             Name = "Evasion",
         };
     }

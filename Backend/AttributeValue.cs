@@ -1,11 +1,12 @@
 ﻿using Godot;
 using System;
+using System.Collections.Generic;
 
 namespace Shadowfront.Backend
 {
-    public class ClampedValue :
-        IEquatable<ClampedValue>,
-        IComparable<ClampedValue>,
+    public class AttributeValue :
+        IEquatable<AttributeValue>,
+        IComparable<AttributeValue>,
         IEquatable<float>,
         IComparable<float>,
         IEquatable<int>,
@@ -13,21 +14,38 @@ namespace Shadowfront.Backend
         IEquatable<double>,
         IComparable<double>
     {
-        public readonly record struct ClampedValue_MinChangedEvent(Guid OwnerId, float PreviousValue, float NewValue) : IEventType;
-        public readonly record struct ClampedValue_MaxChangedEvent(Guid OwnerId, float PreviousValue, float NewValue) : IEventType;
-        public readonly record struct ClampedValue_CurrentChangedEvent(Guid OwnerId, float PreviousValue, float NewValue) : IEventType;
+        public enum ModifierTargets
+        {
+            Current,
+            Min,
+            Max,
+            MinAndMax,
+            All
+        }
+
+        public enum ModiferTypes
+        {
+            Add,
+            Multiply,
+            Set
+        }
+
+        public readonly record struct AttributeModifier(string Source, ModifierTargets Target, ModiferTypes Type, float Amount);
 
         public readonly record struct MinChangedEventArgs(float PreviousValue, float NewValue);
         public readonly record struct MaxChangedEventArgs(float PreviousValue, float NewValue);
         public readonly record struct CurrentChangedEventArgs(float PreviousValue, float NewValue);
         public readonly record struct CurrentAtMinEventArgs(float PreviousValue, float NewValue);
 
-        public event EventHandler<MinChangedEventArgs>? MinChanged;
-        public event EventHandler<MaxChangedEventArgs>? MaxChanged;
-        public event EventHandler<CurrentChangedEventArgs>? CurrentChanged;
-        public event EventHandler<CurrentAtMinEventArgs>? CurrentAtMin;
+        public delegate void MinChangedEventHandler(AttributeValue sender, MinChangedEventArgs e);
+        public delegate void MaxChangedEventHandler(AttributeValue sender, MaxChangedEventArgs e);
+        public delegate void CurrentChangedEventHandler(AttributeValue sender, CurrentChangedEventArgs e);
+        public delegate void CurrentAtMinEventHandler(AttributeValue sender, CurrentAtMinEventArgs e);
 
-        public Guid OwnerId { get; set; }
+        public event MinChangedEventHandler? MinChanged;
+        public event MaxChangedEventHandler? MaxChanged;
+        public event CurrentChangedEventHandler? CurrentChanged;
+        public event CurrentAtMinEventHandler? CurrentAtMin;
 
         private float _min = float.MinValue;
 
@@ -55,6 +73,8 @@ namespace Shadowfront.Backend
 
         public bool EnableEvents { get; set; }
 
+        public List<AttributeModifier> Modifiers { get; init; } = [];
+
         private void SetMin(float newValue)
         {
             var previousValue = _min;
@@ -62,10 +82,7 @@ namespace Shadowfront.Backend
             _min = Math.Min(newValue, _max);
 
             if (EnableEvents && !Mathf.IsEqualApprox(previousValue, _min))
-            {
                 MinChanged?.Invoke(this, new(previousValue, _min));
-                EventBus.Emit(new ClampedValue_MinChangedEvent(OwnerId, previousValue, _min));
-            }
 
             if (_min > _current)
                 SetCurrent(_min);
@@ -78,10 +95,7 @@ namespace Shadowfront.Backend
             _max = Math.Max(newValue, _min);
 
             if (EnableEvents && !Mathf.IsEqualApprox(previousValue, _max))
-            {
-                MaxChanged?.Invoke(this, new(previousValue, _min));
-                EventBus.Emit(new ClampedValue_MaxChangedEvent(OwnerId, previousValue, _max));
-            }
+                MaxChanged?.Invoke(this, new(previousValue, _max));
 
             if (_max < _current)
                 SetCurrent(_max);
@@ -95,15 +109,14 @@ namespace Shadowfront.Backend
 
             if (EnableEvents && !Mathf.IsEqualApprox(previousValue, _current))
             {
-                CurrentChanged?.Invoke(this, new(previousValue, _min));
-                EventBus.Emit(new ClampedValue_CurrentChangedEvent(OwnerId, previousValue, _current));
+                CurrentChanged?.Invoke(this, new(previousValue, _current));
 
                 if(Mathf.IsEqualApprox(_current, _min))
-                    CurrentAtMin?.Invoke(this, new(previousValue, _min));
+                    CurrentAtMin?.Invoke(this, new(previousValue, _current));
             }
         }
 
-        public bool Equals(ClampedValue? other)
+        public bool Equals(AttributeValue? other)
         {
             if(ReferenceEquals(this, other)) return true;
 
@@ -132,12 +145,12 @@ namespace Shadowfront.Backend
                 float f => Equals(f),
                 int i => Equals(i),
                 double d => Equals(d),
-                ClampedValue cv => Equals(cv),
+                AttributeValue cv => Equals(cv),
                 _ => false
             };
         }
 
-        public int CompareTo(ClampedValue? other)
+        public int CompareTo(AttributeValue? other)
             => _current.CompareTo(other?._current);
 
         public int CompareTo(int other)
@@ -149,28 +162,28 @@ namespace Shadowfront.Backend
         public int CompareTo(double other)
             => _current.CompareTo(other);
 
-        public static bool operator ==(ClampedValue left, ClampedValue right)
+        public static bool operator ==(AttributeValue left, AttributeValue right)
             => left is null ? right is null : left.Equals(right);
 
-        public static bool operator !=(ClampedValue left, ClampedValue right)
+        public static bool operator !=(AttributeValue left, AttributeValue right)
             => !(left == right);
 
-        public static bool operator <(ClampedValue left, ClampedValue right)
+        public static bool operator <(AttributeValue left, AttributeValue right)
             => left is null ? right is not null : left.CompareTo(right) < 0;
 
-        public static bool operator <=(ClampedValue left, ClampedValue right)
+        public static bool operator <=(AttributeValue left, AttributeValue right)
             => left is null || left.CompareTo(right) <= 0;
 
-        public static bool operator >(ClampedValue left, ClampedValue right)
+        public static bool operator >(AttributeValue left, AttributeValue right)
             => left is not null && left.CompareTo(right) > 0;
 
-        public static bool operator >=(ClampedValue left, ClampedValue right)
+        public static bool operator >=(AttributeValue left, AttributeValue right)
             => left is null ? right is null : left.CompareTo(right) >= 0;
 
         public override int GetHashCode()
             => (_current, _min, _max, EnableEvents).GetHashCode();
 
-        public ClampedValue Clone() => new()
+        public AttributeValue Clone() => new()
         {
             _current = _current,
             _min = _min,

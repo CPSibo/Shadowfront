@@ -7,7 +7,7 @@ namespace Shadowfront.Backend
 {
     public partial class GameObject : Node
     {
-        public static Dictionary<Guid, object> Registry { get; } = [];
+        public static Dictionary<Guid, GameObject> Registry { get; } = [];
 
         protected Guid _id = Guid.NewGuid();
 
@@ -15,11 +15,13 @@ namespace Shadowfront.Backend
         {
             get => _id;
 
-            init
+            set
             {
+                var previous = _id;
+
                 _id = value;
 
-                UpdateChildrenOwnerId();
+                UpdateRegistry(this, previous, _id);
             }
         }
 
@@ -31,13 +33,13 @@ namespace Shadowfront.Backend
         {
             base._Ready();
 
-            UpdateChildrenOwnerId();
+            UpdateRegistry(this, null, _id);
         }
 
-        protected static void UpdateRegistry(GameObject gameObject, Guid from, Guid to)
+        protected static void UpdateRegistry(GameObject gameObject, Guid? from, Guid to)
         {
-            if (Registry.ContainsKey(from))
-                Registry.Remove(from);
+            if(from is not null)
+                Registry.Remove(from.Value);
 
             Registry.Add(to, gameObject);
 
@@ -78,5 +80,22 @@ namespace Shadowfront.Backend
 
         public bool OwnerChainContains(GameObject gameObject)
             => OwnerChainContains(gameObject.Id);
+
+        public bool ChildChainContains(Guid id)
+        {
+            if (_id == id) return true;
+
+            if(!Registry.TryGetValue(id, out var registryObject))
+                return false;
+
+            return registryObject.OwnerChainContains(_id);
+        }
+
+        public bool ChildChainContains(GameObject gameObject)
+        {
+            if (_id == gameObject.Id) return true;
+
+            return gameObject.OwnerChainContains(_id);
+        }
     }
 }

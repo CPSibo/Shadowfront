@@ -70,19 +70,15 @@ script = ExtResource("1_7medt")
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="."]
 sprite_frames = SubResource("SpriteFrames_8webk")
 
-[node name="BoardPieceHealth" parent="." instance=ExtResource("3_gowlq")]
-MaxHealth = 10.0
+[node name="ObjectAttributes" parent="." instance=ExtResource("6_33rhb")]
 
 [node name="BoardPieceMovement" parent="." instance=ExtResource("4_5ot01")]
 MaxRange = 2
 MinRange = 1
 
-[node name="Label" type="Label" parent="."]
-offset_right = 40.0
-offset_bottom = 23.0
+[node name="BoardPieceHealth" parent="." instance=ExtResource("3_gowlq")]
+MaxHealth = 10.0
 
 [node name="BoardPieceGunAbility" parent="." instance=ExtResource("5_bq403")]
 MinRange = 2
 MaxRange = 3
-
-[node name="ObjectAttributes" parent="." instance=ExtResource("6_33rhb")]

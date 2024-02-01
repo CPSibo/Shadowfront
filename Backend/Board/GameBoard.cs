@@ -11,7 +11,8 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using static Shadowfront.Backend.Board.BoardPieces.ObjectAttribute;
-using static Shadowfront.Backend.ClampedValue;
+using static Shadowfront.Backend.Board.BoardPieces.ObjectAttributes;
+using static Shadowfront.Backend.AttributeValue;
 
 namespace Shadowfront.Backend.Board
 {
@@ -74,7 +75,7 @@ namespace Shadowfront.Backend.Board
 
             EventBus.Subscribe<GameBoard_BoardPieceCreationRequestedEvent>(BoardPieceCreationRequested);
 
-            EventBus.Subscribe<ObjectAttribute_CurrentAtMinEvent>(ObjectAttribute_CurrentAtMin);
+            EventBus.Subscribe<ObjectAttributes_AttributeValueCurrentAtMinEvent>(ObjectAttributes_AttributeValueCurrentAtMin);
 
             InitializeData();
 
@@ -92,7 +93,7 @@ namespace Shadowfront.Backend.Board
 
             EventBus.Unsubscribe<GameBoard_BoardPieceCreationRequestedEvent>(BoardPieceCreationRequested);
 
-            EventBus.Unsubscribe<ObjectAttribute_CurrentAtMinEvent>(ObjectAttribute_CurrentAtMin);
+            EventBus.Unsubscribe<ObjectAttributes_AttributeValueCurrentAtMinEvent>(ObjectAttributes_AttributeValueCurrentAtMin);
 
             EventBus.Emit(new GameBoard_DisposingEvent(this));
 
@@ -418,8 +419,6 @@ namespace Shadowfront.Backend.Board
 
                 if (attributes is not null)
                 {
-                    attributes.OwnerId = boardPiece.Id;
-
                     var health = DefaultObjectAttributes.Health;
                     health.Value.Max = 10;
                     health.Value.Min = 0;
@@ -477,14 +476,17 @@ namespace Shadowfront.Backend.Board
             //e.BoardPiece.Dispose();
         }
 
-        private void ObjectAttribute_CurrentAtMin(ObjectAttribute_CurrentAtMinEvent e)
+        private void ObjectAttributes_AttributeValueCurrentAtMin(ObjectAttributes_AttributeValueCurrentAtMinEvent e)
         {
-            var boardPiece = BoardPieces.FirstOrDefault(f => f.Id == e.OwnerId);
-
-            if (boardPiece is null)
+            if (e.Attribute.Key != DefaultObjectAttributes.Keys.HEALTH)
                 return;
 
-            boardPiece.Dispose();
+            var owner = e.Owner;
+
+            if (!BoardPieces.Contains(owner))
+                return;
+
+            owner.Dispose();
         }
 
         private void BoardPiece_Disposing(BoardPiece_DisposingEvent e)

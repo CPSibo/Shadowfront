@@ -1,37 +1,34 @@
-﻿using System;
-using static Shadowfront.Backend.ClampedValue;
+﻿using static Shadowfront.Backend.AttributeValue;
 
 namespace Shadowfront.Backend.Board.BoardPieces
 {
-    public partial class ObjectAttribute : GameObject
+    public partial class ObjectAttribute
     {
-        public readonly record struct ObjectAttribute_MinChangedEvent(Guid OwnerId, string Name, float PreviousValue, float NewValue) : IEventType;
-        public readonly record struct ObjectAttribute_MaxChangedEvent(Guid OwnerId, string Name, float PreviousValue, float NewValue) : IEventType;
-        public readonly record struct ObjectAttribute_CurrentChangedEvent(Guid OwnerId, string Name, float PreviousValue, float NewValue) : IEventType;
-        public readonly record struct ObjectAttribute_CurrentAtMinEvent(Guid OwnerId, string Name, float PreviousValue, float NewValue) : IEventType;
+        public readonly record struct ValueMinChangedEventArgs(AttributeValue ClampedValue, float PreviousValue, float NewValue);
+        public readonly record struct ValueMaxChangedEventArgs(AttributeValue ClampedValue, float PreviousValue, float NewValue);
+        public readonly record struct ValueCurrentChangedEventArgs(AttributeValue ClampedValue, float PreviousValue, float NewValue);
+        public readonly record struct ValueCurrentAtMinEventArgs(AttributeValue ClampedValue, float PreviousValue, float NewValue);
 
-        public Guid OwnerId
-        {
-            get => OwnerId;
+        public delegate void ValueMinChangedEventHandler(ObjectAttribute sender, ValueMinChangedEventArgs e);
+        public delegate void ValueMaxChangedEventHandler(ObjectAttribute sender, ValueMaxChangedEventArgs e);
+        public delegate void ValueCurrentChangedEventHandler(ObjectAttribute sender, ValueCurrentChangedEventArgs e);
+        public delegate void ValueCurrentAtMinEventHandler(ObjectAttribute sender, ValueCurrentAtMinEventArgs e);
 
-            set
-            {
-                _ownerId = value;
-                Value.OwnerId = value;
-            }
-        }
+        public event ValueMinChangedEventHandler? ValueMinChanged;
+        public event ValueMaxChangedEventHandler? ValueMaxChanged;
+        public event ValueCurrentChangedEventHandler? ValueCurrentChanged;
+        public event ValueCurrentAtMinEventHandler? ValueCurrentAtMin;
+
+        public string Key { get; set; } = null!;
+
+        public string Name { get; set; } = null!;
 
         public string? Description { get; set; }
 
-        public ClampedValue Value { get; init; }
+        public AttributeValue Value { get; init; } = new();
 
         public ObjectAttribute()
         {
-            Value = new()
-            {
-                OwnerId = OwnerId
-            };
-
             Value.MinChanged += OnMinChanged;
             Value.MaxChanged += OnMaxChanged;
             Value.CurrentChanged += OnCurrentChanged;
@@ -46,24 +43,24 @@ namespace Shadowfront.Backend.Board.BoardPieces
             Value.CurrentAtMin -= OnCurrentAtMin;
         }
 
-        private void OnMinChanged(object? sender, MinChangedEventArgs e)
+        private void OnMinChanged(AttributeValue sender, MinChangedEventArgs e)
         {
-            EventBus.Emit(new ObjectAttribute_MinChangedEvent(OwnerId, Name, e.PreviousValue, e.NewValue));
+            ValueMinChanged?.Invoke(this, new(sender, e.PreviousValue, e.NewValue));
         }
 
-        private void OnMaxChanged(object? sender, MaxChangedEventArgs e)
+        private void OnMaxChanged(AttributeValue sender, MaxChangedEventArgs e)
         {
-            EventBus.Emit(new ObjectAttribute_MaxChangedEvent(OwnerId, Name, e.PreviousValue, e.NewValue));
+            ValueMaxChanged?.Invoke(this, new(sender, e.PreviousValue, e.NewValue));
         }
 
-        private void OnCurrentChanged(object? sender, CurrentChangedEventArgs e)
+        private void OnCurrentChanged(AttributeValue sender, CurrentChangedEventArgs e)
         {
-            EventBus.Emit(new ObjectAttribute_CurrentChangedEvent(OwnerId, Name, e.PreviousValue, e.NewValue));
+            ValueCurrentChanged?.Invoke(this, new(sender, e.PreviousValue, e.NewValue));
         }
 
-        private void OnCurrentAtMin(object? sender, CurrentAtMinEventArgs e)
+        private void OnCurrentAtMin(AttributeValue sender, CurrentAtMinEventArgs e)
         {
-            EventBus.Emit(new ObjectAttribute_CurrentAtMinEvent(OwnerId, Name, e.PreviousValue, e.NewValue));
+            ValueCurrentAtMin?.Invoke(this, new(sender, e.PreviousValue, e.NewValue));
         }
     }
 }

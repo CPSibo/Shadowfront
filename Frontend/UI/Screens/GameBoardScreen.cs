@@ -1,9 +1,6 @@
 using Godot;
 using Shadowfront.Backend;
-using Shadowfront.Backend.Board;
-using Shadowfront.Backend.Board.BoardPieces.Behaviors;
-using System.Linq;
-using static Shadowfront.Backend.Board.BoardPieces.ObjectAttribute;
+using static Shadowfront.Backend.Board.BoardPieces.ObjectAttributes;
 
 public partial class GameBoardScreen : Node2D
 {
@@ -11,26 +8,23 @@ public partial class GameBoardScreen : Node2D
     {
         base._Ready();
 
-        EventBus.Subscribe<ObjectAttribute_CurrentChangedEvent>(ObjectAttribute_CurrentChanged);
+        EventBus.Subscribe<ObjectAttributes_AttributeValueCurrentChangedEvent>(ObjectAttributes_AttributeValueCurrentChanged);
     }
 
     ~GameBoardScreen()
     {
-        EventBus.Unsubscribe<ObjectAttribute_CurrentChangedEvent>(ObjectAttribute_CurrentChanged);
+        EventBus.Unsubscribe<ObjectAttributes_AttributeValueCurrentChangedEvent>(ObjectAttributes_AttributeValueCurrentChanged);
     }
 
-    private void ObjectAttribute_CurrentChanged(ObjectAttribute_CurrentChangedEvent e)
+    private void ObjectAttributes_AttributeValueCurrentChanged(ObjectAttributes_AttributeValueCurrentChangedEvent e)
     {
-        var sourceBoardPiece = GameBoard.Instance.BoardPieces
-            .FirstOrDefault(f => f.Id == e.OwnerId);
-
-        if (sourceBoardPiece is null)
+        if (e.Owner is not Node2D owner2D)
             return;
 
-        var sourcePosition = sourceBoardPiece.Position;
+        var sourcePosition = owner2D.Position;
 
         AddDamageLabel(sourcePosition, e.NewValue - e.PreviousValue);
-        AddBoardPieceDialog(sourcePosition, e.NewValue > 0 ? "Taking fire!" : "I'm hit!");
+        AddBoardPieceDialog(sourcePosition, e.NewValue > 0f ? "Taking fire!" : "I'm hit!");
     }
 
     private Label AddDamageLabel(Vector2 position, float damageAmount)
